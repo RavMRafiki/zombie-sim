@@ -6,8 +6,8 @@ import math
 pygame.init()
 
 # Constants
-GRID_SIZE = 128
-CELL_SIZE = 8  # Each cell is 20x20 pixels
+GRID_SIZE = 12
+CELL_SIZE = 80  # Each cell is 20x20 pixels
 WINDOW_SIZE = GRID_SIZE * CELL_SIZE
 MOVE_INTERVAL = 500  # milliseconds (0.5 seconds)
 FPS = 60
@@ -28,9 +28,10 @@ class Character:
     color = (255, 255, 255)
     move_speed = MOVE_INTERVAL
     
-    def __init__(self, x, y):
+    def __init__(self, x, y, grid=None):
         self.x = x  # Grid coordinates
         self.y = y
+        self.grid = grid
         self.last_move_time = pygame.time.get_ticks()
     
     def update(self, current_time):
@@ -71,11 +72,45 @@ class Zombie(Character):
     char_type_name = "Zombie"
     color = COLOR_ZOMBIE
     move_speed = MOVE_INTERVAL
+    INFECTION_RANGE = 1.99  # Grid cells
+    INFECTION_COOLDOWN = 5000  # milliseconds
+    
+    def __init__(self, x, y, grid=None):
+        super().__init__(x, y, grid)
+        self.last_infection_time = 5000
     
     def act(self):
-        """Zombies perform aggressive behavior"""
-        # Can be extended with hunting logic, infection spreading, etc.
-        pass
+        """Zombies perform aggressive behavior - infect nearby humans"""
+        if not self.grid:
+            return
+        
+        current_time = pygame.time.get_ticks()
+        
+        # Check if infection is off cooldown
+        if current_time - self.last_infection_time < self.INFECTION_COOLDOWN:
+            return
+        
+        # Check for infectable characters in range
+        for character in self.grid.characters:
+            if isinstance(character, (Human, Medic, Soldier)):
+                # Calculate distance
+                dx = self.x - character.x
+                dy = self.y - character.y
+                distance = math.sqrt(dx*dx + dy*dy)
+                
+                # Infect if in range
+                if distance <= self.INFECTION_RANGE:
+                    self.infect_character(character)
+                    self.last_infection_time = current_time
+                    break  # Only infect one character per cooldown
+    
+    def infect_character(self, character):
+        """Convert a character to infected"""
+        if self.grid:
+            # Replace character with infected
+            idx = self.grid.characters.index(character)
+            infected = Infected(character.x, character.y, self.grid, previous_type=character.get_type_name())
+            self.grid.characters[idx] = infected
 
 
 class Human(Character):
@@ -84,6 +119,9 @@ class Human(Character):
     char_type_name = "Human"
     color = COLOR_HUMAN
     move_speed = MOVE_INTERVAL
+    
+    def __init__(self, x, y, grid=None):
+        super().__init__(x, y, grid)
     
     def act(self):
         """Humans perform survival behavior"""
@@ -95,8 +133,12 @@ class Infected(Character):
     """Infected character - in transition state"""
     
     char_type_name = "Infected"
+    previous_type = "Human"
     color = COLOR_INFECTED
     move_speed = int(MOVE_INTERVAL * 0.75)  # Infected move faster
+    
+    def __init__(self, x, y, grid=None, previous_type=None):
+        super().__init__(x, y, grid)
     
     def act(self):
         """Infected perform transitional behavior"""
@@ -111,6 +153,9 @@ class Medic(Character):
     color = COLOR_MEDIC
     move_speed = MOVE_INTERVAL
     
+    def __init__(self, x, y, grid=None):
+        super().__init__(x, y, grid)
+    
     def act(self):
         """Medics perform healing/support behavior"""
         # Can be extended with healing logic, etc.
@@ -123,6 +168,9 @@ class Soldier(Character):
     char_type_name = "Soldier"
     color = COLOR_SOLIDIER
     move_speed = int(MOVE_INTERVAL * 0.8)  # Soldiers move slightly faster
+    
+    def __init__(self, x, y, grid=None):
+        super().__init__(x, y, grid)
     
     def act(self):
         """Soldiers perform combat behavior"""
@@ -140,31 +188,31 @@ class Grid:
         for _ in range(num_zombies):
             x = random.randint(0, GRID_SIZE - 1)
             y = random.randint(0, GRID_SIZE - 1)
-            self.characters.append(Zombie(x, y))
+            self.characters.append(Zombie(x, y, self))
         
         # Create humans
         for _ in range(num_humans):
             x = random.randint(0, GRID_SIZE - 1)
             y = random.randint(0, GRID_SIZE - 1)
-            self.characters.append(Human(x, y))
+            self.characters.append(Human(x, y, self))
         
         # Create infected
         for _ in range(num_infected):
             x = random.randint(0, GRID_SIZE - 1)
             y = random.randint(0, GRID_SIZE - 1)
-            self.characters.append(Infected(x, y))
+            self.characters.append(Infected(x, y, self))
             
         # Create medics
         for _ in range(num_medics):
             x = random.randint(0, GRID_SIZE - 1)
             y = random.randint(0, GRID_SIZE - 1)
-            self.characters.append(Medic(x, y))
+            self.characters.append(Medic(x, y, self))
         
         # Create soldiers
         for _ in range(num_soldiers):
             x = random.randint(0, GRID_SIZE - 1)
             y = random.randint(0, GRID_SIZE - 1)
-            self.characters.append(Soldier(x, y))
+            self.characters.append(Soldier(x, y, self))
     
     def update(self):
         """Update all characters"""
@@ -199,7 +247,7 @@ def main():
     pygame.display.set_caption("Zombie Outbreak Simulation")
     clock = pygame.time.Clock()
     
-    grid = Grid(num_zombies=10, num_humans=15, num_infected=5, num_medics=2, num_soldiers=2)
+    grid = Grid(num_zombies=1, num_humans=10, num_infected=0, num_medics=0, num_soldiers=0)
     font = pygame.font.Font(None, 24)
     
     running = True
