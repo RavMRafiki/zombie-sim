@@ -27,6 +27,7 @@ class Character:
     char_type_name = "Character"
     color = (255, 255, 255)
     move_speed = MOVE_INTERVAL
+    signals = []
     
     def __init__(self, x, y, grid=None):
         self.x = x  # Grid coordinates
@@ -54,6 +55,41 @@ class Character:
     def act(self):
         """Perform character-specific action (override in subclasses)"""
         pass
+    
+    def send_signal(self, signal_type, broadcast_range=3, data=None):
+        """Send a signal to nearby characters"""
+        if not self.grid:
+            return
+        
+        for character in self.grid.characters:
+            if character is self:
+                continue
+            
+            # Calculate distance
+            dx = self.x - character.x
+            dy = self.y - character.y
+            distance = math.sqrt(dx*dx + dy*dy)
+            
+            # Send signal if in range
+            if distance <= broadcast_range:
+                character.receive_signal(signal_type, {
+                    "source": self,
+                    "source_pos": (self.x, self.y),
+                    "distance": distance,
+                    "data": data
+                })
+    
+    def receive_signal(self, signal_type, signal_data):
+        """Receive a signal from another character"""
+        self.signals.append({
+            "type": signal_type,
+            "data": signal_data,
+            "time": pygame.time.get_ticks()
+        })
+    
+    def process_signals(self):
+        """Process all received signals (override in subclasses for custom behavior)"""
+        self.signals.clear()  # Clear processed signals
     
     def draw(self, screen):
         """Draw character on screen"""
@@ -119,14 +155,62 @@ class Human(Character):
     char_type_name = "Human"
     color = COLOR_HUMAN
     move_speed = MOVE_INTERVAL
+    THREAT_DETECTION_RANGE = 3.0  # Grid cells for detecting threats
+    THREAT_BROADCAST_RANGE = 7.0  # Grid cells for broadcasting threat info
     
     def __init__(self, x, y, grid=None):
         super().__init__(x, y, grid)
     
     def act(self):
-        """Humans perform survival behavior"""
-        # Can be extended with fleeing logic, etc.
-        pass
+        # for i, signal in enumerate(self.signals):
+        #     print(i, signal['data']['threats'])
+        # self.signals.clear()
+        """Humans perform survival behavior - broadcast threat information"""
+        if not self.grid:
+            return
+        
+        # Scan for zombies and infected nearby
+        threats = []
+        for character in self.grid.characters:
+            if isinstance(character, (Zombie, Infected)):
+                # Calculate distance
+                dx = self.x - character.x
+                dy = self.y - character.y
+                distance = math.sqrt(dx*dx + dy*dy)
+                
+                # Add to threats if in detection range
+                if distance <= self.THREAT_DETECTION_RANGE:
+                    threats.append({
+                        "type": "Zombie" if isinstance(character, Zombie) else "Infected",
+                        "position": (character.x, character.y),
+                        "distance": distance
+                    })
+        
+        # Broadcast threat information if threats detected
+        if threats:
+            self.broadcast_threat_info(threats)
+    
+    def broadcast_threat_info(self, threats):
+        """Broadcast threat information to nearby characters"""
+        if not self.grid:
+            return
+        
+        for character in self.grid.characters:
+            if character is self:
+                continue
+            
+            # Calculate distance
+            dx = self.x - character.x
+            dy = self.y - character.y
+            distance = math.sqrt(dx*dx + dy*dy)
+            
+            # Send threat info if in broadcast range
+            if distance <= self.THREAT_BROADCAST_RANGE:
+                character.receive_signal("threat_alert", {
+                    "source": self,
+                    "source_pos": (self.x, self.y),
+                    "threats": threats
+                })
 
 
 class Infected(Character):
@@ -136,14 +220,31 @@ class Infected(Character):
     previous_type = "Human"
     color = COLOR_INFECTED
     move_speed = int(MOVE_INTERVAL * 0.75)  # Infected move faster
+    TRANSFORMATION_TIME = 10000  # milliseconds before becoming zombie
     
     def __init__(self, x, y, grid=None, previous_type=None):
         super().__init__(x, y, grid)
+        self.infection_start_time = pygame.time.get_ticks()
+        if previous_type:
+            self.previous_type = previous_type
     
     def act(self):
-        """Infected perform transitional behavior"""
-        # Can be extended with transformation logic, etc.
-        pass
+        """Infected perform transitional behavior - transform to zombie after 5000ms"""
+        if not self.grid:
+            return
+        
+        current_time = pygame.time.get_ticks()
+        time_infected = current_time - self.infection_start_time
+        
+        if time_infected >= self.TRANSFORMATION_TIME:
+            self.transform_to_zombie()
+    
+    def transform_to_zombie(self):
+        """Convert this infected to zombie"""
+        if self.grid:
+            idx = self.grid.characters.index(self)
+            zombie = Zombie(self.x, self.y, self.grid)
+            self.grid.characters[idx] = zombie
 
 
 class Medic(Character):
@@ -152,14 +253,55 @@ class Medic(Character):
     char_type_name = "Medic"
     color = COLOR_MEDIC
     move_speed = MOVE_INTERVAL
+    HEAL_RANGE = 2.0  # Grid cells
+    HEAL_TIME = 20000  # milliseconds before can heal again
     
     def __init__(self, x, y, grid=None):
         super().__init__(x, y, grid)
+        self.last_heal_time = pygame.time.get_ticks()
+        # self.heal_ticks = 0
     
     def act(self):
         """Medics perform healing/support behavior"""
-        # Can be extended with healing logic, etc.
-        pass
+        if not self.grid:
+            return
+        
+        current_time = pygame.time.get_ticks()
+        time_infected = current_time - self.last_heal_time
+        
+        if time_infected >= self.HEAL_TIME:
+            return
+        
+        for character in self.grid.characters:
+            if isinstance(character, Infected):
+                # Calculate distance
+                dx = self.x - character.x
+                dy = self.y - character.y
+                distance = math.sqrt(dx*dx + dy*dy)
+                
+                # Heal if in range
+                if distance <= self.HEAL_RANGE:
+                    self.heal_infected(character)
+                    break  # Only heal one infected per cooldown
+    
+    def heal_infected(self, infected):
+        """Convert infected back to their previous type"""
+        if self.grid:
+            idx = self.grid.characters.index(infected)
+            
+            # Restore to previous type based on stored type
+            previous_type = infected.previous_type
+            
+            if previous_type == "Human":
+                healed = Human(infected.x, infected.y, self.grid)
+            elif previous_type == "Medic":
+                healed = Medic(infected.x, infected.y, self.grid)
+            elif previous_type == "Soldier":
+                healed = Soldier(infected.x, infected.y, self.grid)
+            else:
+                healed = Human(infected.x, infected.y, self.grid)  # Default to Human
+            
+            self.grid.characters[idx] = healed
 
 
 class Soldier(Character):
@@ -168,14 +310,42 @@ class Soldier(Character):
     char_type_name = "Soldier"
     color = COLOR_SOLIDIER
     move_speed = int(MOVE_INTERVAL * 0.8)  # Soldiers move slightly faster
+    KILL_RANGE = 3.0  # Grid cells
+    KILL_COOLDOWN = 5000  # milliseconds
     
     def __init__(self, x, y, grid=None):
         super().__init__(x, y, grid)
+        self.last_kill_time = 0
     
     def act(self):
-        """Soldiers perform combat behavior"""
-        # Can be extended with combat logic, etc.
-        pass
+        """Soldiers perform combat behavior - kill zombies in range"""
+        if not self.grid:
+            return
+        
+        current_time = pygame.time.get_ticks()
+        
+        # Check if killing is off cooldown
+        if current_time - self.last_kill_time < self.KILL_COOLDOWN:
+            return
+        
+        # Kill all zombies in range
+        zombies_to_kill = []
+        for character in self.grid.characters:
+            if isinstance(character, Zombie):
+                # Calculate distance
+                dx = self.x - character.x
+                dy = self.y - character.y
+                distance = math.sqrt(dx*dx + dy*dy)
+                
+                # Kill if in range
+                if distance <= self.KILL_RANGE:
+                    zombies_to_kill.append(character)
+        
+        # Remove killed zombies and update cooldown if any were killed
+        if zombies_to_kill:
+            for zombie in zombies_to_kill:
+                self.grid.characters.remove(zombie)
+            self.last_kill_time = current_time
 
 
 class Grid:
@@ -247,7 +417,7 @@ def main():
     pygame.display.set_caption("Zombie Outbreak Simulation")
     clock = pygame.time.Clock()
     
-    grid = Grid(num_zombies=1, num_humans=10, num_infected=0, num_medics=0, num_soldiers=0)
+    grid = Grid(num_zombies=5, num_humans=1, num_infected=0, num_medics=1, num_soldiers=1)
     font = pygame.font.Font(None, 24)
     
     running = True
