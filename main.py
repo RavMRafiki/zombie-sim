@@ -4,8 +4,8 @@ import math
 
 pygame.init()
 
-GRID_SIZE = 12
-CELL_SIZE = 80  # Each cell is 20x20 pixels
+GRID_SIZE = 256
+CELL_SIZE = 4  # Each cell is 20x20 pixels
 WINDOW_SIZE = GRID_SIZE * CELL_SIZE
 MOVE_INTERVAL = 500  # milliseconds (0.5 seconds)
 FPS = 60
@@ -61,7 +61,6 @@ class Character:
             if character is self:
                 continue
             
-            # Calculate distance
             dx = self.x - character.x
             dy = self.y - character.y
             distance = math.sqrt(dx*dx + dy*dy)
@@ -144,7 +143,6 @@ class Zombie(Character):
         # Check for infectable characters in range
         for character in self.grid.characters:
             if isinstance(character, (Human, Medic, Soldier)):
-                # Calculate distance
                 dx = self.x - character.x
                 dy = self.y - character.y
                 distance = math.sqrt(dx*dx + dy*dy)
@@ -184,7 +182,6 @@ class Human(Character):
         threats = []
         for character in self.grid.characters:
             if isinstance(character, (Zombie, Infected)):
-                # Calculate distance
                 dx = self.x - character.x
                 dy = self.y - character.y
                 distance = math.sqrt(dx*dx + dy*dy)
@@ -416,7 +413,6 @@ class Soldier(Human):
             if character is self:
                 continue
             
-            # Calculate distance
             dx = self.x - character.x
             dy = self.y - character.y
             distance = math.sqrt(dx*dx + dy*dy)
@@ -500,7 +496,7 @@ def main():
     pygame.display.set_caption("Zombie Outbreak Simulation")
     clock = pygame.time.Clock()
     
-    grid = Grid(num_zombies=5, num_humans=2, num_infected=0, num_medics=2, num_soldiers=1)
+    grid = Grid(num_zombies=40, num_humans=60, num_infected=0, num_medics=16, num_soldiers=8)
     font = pygame.font.Font(None, 24)
     
     running = True
