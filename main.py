@@ -2,17 +2,14 @@ import pygame
 import random
 import math
 
-# Initialize Pygame
 pygame.init()
 
-# Constants
 GRID_SIZE = 12
 CELL_SIZE = 80  # Each cell is 20x20 pixels
 WINDOW_SIZE = GRID_SIZE * CELL_SIZE
 MOVE_INTERVAL = 500  # milliseconds (0.5 seconds)
 FPS = 60
 
-# Colors
 COLOR_BACKGROUND = (50, 50, 50)
 COLOR_GRID = (100, 100, 100)
 COLOR_ZOMBIE = (0, 255, 0)
@@ -30,7 +27,7 @@ class Character:
     signals = []
     
     def __init__(self, x, y, grid=None):
-        self.x = x  # Grid coordinates
+        self.x = x
         self.y = y
         self.grid = grid
         self.last_move_time = pygame.time.get_ticks()
@@ -48,7 +45,6 @@ class Character:
         new_x = self.x + direction[0]
         new_y = self.y + direction[1]
         
-        # Keep within grid bounds
         self.x = max(0, min(GRID_SIZE - 1, new_x))
         self.y = max(0, min(GRID_SIZE - 1, new_y))
     
@@ -89,7 +85,7 @@ class Character:
     
     def process_signals(self):
         """Process all received signals (override in subclasses for custom behavior)"""
-        self.signals.clear()  # Clear processed signals
+        self.signals.clear()
     
     def draw(self, screen):
         """Draw character on screen"""
@@ -111,7 +107,6 @@ class Character:
             if character is self:
                 continue
             
-            # Calculate distance
             dx = self.x - character.x
             dy = self.y - character.y
             distance = math.sqrt(dx*dx + dy*dy)
@@ -128,8 +123,8 @@ class Zombie(Character):
     char_type_name = "Zombie"
     color = COLOR_ZOMBIE
     move_speed = MOVE_INTERVAL
-    INFECTION_RANGE = 1.99  # Grid cells
-    INFECTION_COOLDOWN = 5000  # milliseconds
+    INFECTION_RANGE = 1.99
+    INFECTION_COOLDOWN = 5000
     
     def __init__(self, x, y, grid=None):
         super().__init__(x, y, grid)
@@ -158,12 +153,11 @@ class Zombie(Character):
                 if distance <= self.INFECTION_RANGE:
                     self.infect_character(character)
                     self.last_infection_time = current_time
-                    break  # Only infect one character per cooldown
+                    break
     
     def infect_character(self, character):
         """Convert a character to infected"""
         if self.grid:
-            # Replace character with infected
             idx = self.grid.characters.index(character)
             infected = Infected(character.x, character.y, self.grid, previous_type=character.get_type_name())
             self.grid.characters[idx] = infected
@@ -175,8 +169,8 @@ class Human(Character):
     char_type_name = "Human"
     color = COLOR_HUMAN
     move_speed = MOVE_INTERVAL
-    THREAT_DETECTION_RANGE = 3.0  # Grid cells for detecting threats
-    THREAT_BROADCAST_RANGE = 7.0  # Grid cells for broadcasting threat info
+    THREAT_DETECTION_RANGE = 3.0
+    THREAT_BROADCAST_RANGE = 7.0
     
     def __init__(self, x, y, grid=None):
         super().__init__(x, y, grid)
@@ -216,7 +210,6 @@ class Human(Character):
             if character is self:
                 continue
             
-            # Calculate distance
             dx = self.x - character.x
             dy = self.y - character.y
             distance = math.sqrt(dx*dx + dy*dy)
@@ -236,8 +229,9 @@ class Infected(Character):
     char_type_name = "Infected"
     previous_type = "Human"
     color = COLOR_INFECTED
-    move_speed = int(MOVE_INTERVAL * 0.75)  # Infected move faster
-    TRANSFORMATION_TIME = 10000  # milliseconds before becoming zombie
+    move_speed = int(MOVE_INTERVAL * 0.75)
+    TRANSFORMATION_TIME = 10000
+    BROADCAST_RANGE = 5.0
     
     def __init__(self, x, y, grid=None, previous_type=None):
         super().__init__(x, y, grid)
@@ -246,15 +240,39 @@ class Infected(Character):
             self.previous_type = previous_type
     
     def act(self):
-        """Infected perform transitional behavior - transform to zombie after 5000ms"""
+        """Infected perform transitional behavior - transform to zombie and broadcast"""
         if not self.grid:
             return
         
         current_time = pygame.time.get_ticks()
         time_infected = current_time - self.infection_start_time
         
+        self.broadcast_infected_status()
+        
         if time_infected >= self.TRANSFORMATION_TIME:
             self.transform_to_zombie()
+    
+    def broadcast_infected_status(self):
+        """Broadcast infected status to nearby characters"""
+        if not self.grid:
+            return
+        
+        for character in self.grid.characters:
+            if character is self:
+                continue
+            
+            dx = self.x - character.x
+            dy = self.y - character.y
+            distance = math.sqrt(dx*dx + dy*dy)
+            
+            # Send infected status if in broadcast range
+            if distance <= self.BROADCAST_RANGE:
+                character.receive_signal("got infected", {
+                    "source": self,
+                    "source_pos": (self.x, self.y),
+                    "distance": distance,
+                    "time_until_zombie": self.TRANSFORMATION_TIME - (pygame.time.get_ticks() - self.infection_start_time)
+                })
     
     def transform_to_zombie(self):
         """Convert this infected to zombie"""
@@ -264,7 +282,7 @@ class Infected(Character):
             self.grid.characters[idx] = zombie
 
 
-class Medic(Character):
+class Medic(Human):
     """Medic character - supports humans"""
     
     char_type_name = "Medic"
@@ -291,7 +309,6 @@ class Medic(Character):
         
         for character in self.grid.characters:
             if isinstance(character, Infected):
-                # Calculate distance
                 dx = self.x - character.x
                 dy = self.y - character.y
                 distance = math.sqrt(dx*dx + dy*dy)
@@ -302,7 +319,7 @@ class Medic(Character):
                     break  # Only heal one infected per cooldown
     
     def heal_infected(self, infected):
-        """Convert infected back to their previous type"""
+        """Convert infected back to their previous type and broadcast healing"""
         if self.grid:
             idx = self.grid.characters.index(infected)
             
@@ -319,9 +336,37 @@ class Medic(Character):
                 healed = Human(infected.x, infected.y, self.grid)  # Default to Human
             
             self.grid.characters[idx] = healed
+            
+            # Broadcast healing action to nearby characters
+            self.broadcast_heal(healed, previous_type)
+    
+    def broadcast_heal(self, healed_character, healed_type):
+        """Broadcast healing action to nearby characters"""
+        if not self.grid:
+            return
+        
+        broadcast_range = 7.0  # Grid cells
+        
+        for character in self.grid.characters:
+            if character is self or character is healed_character:
+                continue
+            
+            dx = self.x - character.x
+            dy = self.y - character.y
+            distance = math.sqrt(dx*dx + dy*dy)
+            
+            # Send healing info if in broadcast range
+            if distance <= broadcast_range:
+                character.receive_signal("healing_performed", {
+                    "medic": self,
+                    "medic_pos": (self.x, self.y),
+                    "healed_pos": (healed_character.x, healed_character.y),
+                    "healed_type": healed_type,
+                    "distance": distance
+                })
 
 
-class Soldier(Character):
+class Soldier(Human):
     """Soldier character - combat specialist"""
     
     char_type_name = "Soldier"
@@ -335,7 +380,7 @@ class Soldier(Character):
         self.last_kill_time = 0
     
     def act(self):
-        """Soldiers perform combat behavior - kill zombies in range"""
+        """Soldiers perform combat behavior - kill one zombie in range per cooldown"""
         if not self.grid:
             return
         
@@ -345,24 +390,45 @@ class Soldier(Character):
         if current_time - self.last_kill_time < self.KILL_COOLDOWN:
             return
         
-        # Kill all zombies in range
-        zombies_to_kill = []
+        # Find first zombie in range
         for character in self.grid.characters:
             if isinstance(character, Zombie):
-                # Calculate distance
                 dx = self.x - character.x
                 dy = self.y - character.y
                 distance = math.sqrt(dx*dx + dy*dy)
                 
                 # Kill if in range
                 if distance <= self.KILL_RANGE:
-                    zombies_to_kill.append(character)
+                    kill_pos = (character.x, character.y)
+                    self.grid.characters.remove(character)
+                    self.last_kill_time = current_time
+                    self.broadcast_kill(kill_pos)
+                    break
+    
+    def broadcast_kill(self, kill_pos):
+        """Broadcast kill action to nearby characters"""
+        if not self.grid:
+            return
         
-        # Remove killed zombies and update cooldown if any were killed
-        if zombies_to_kill:
-            for zombie in zombies_to_kill:
-                self.grid.characters.remove(zombie)
-            self.last_kill_time = current_time
+        broadcast_range = 7.0
+        
+        for character in self.grid.characters:
+            if character is self:
+                continue
+            
+            # Calculate distance
+            dx = self.x - character.x
+            dy = self.y - character.y
+            distance = math.sqrt(dx*dx + dy*dy)
+            
+            # Send kill info if in broadcast range
+            if distance <= broadcast_range:
+                character.receive_signal("zombies_killed", {
+                    "soldier": self,
+                    "soldier_pos": (self.x, self.y),
+                    "kill_position": kill_pos,
+                    "distance": distance
+                })
 
 
 class Grid:
@@ -434,7 +500,7 @@ def main():
     pygame.display.set_caption("Zombie Outbreak Simulation")
     clock = pygame.time.Clock()
     
-    grid = Grid(num_zombies=5, num_humans=1, num_infected=0, num_medics=1, num_soldiers=1)
+    grid = Grid(num_zombies=5, num_humans=2, num_infected=0, num_medics=2, num_soldiers=1)
     font = pygame.font.Font(None, 24)
     
     running = True
