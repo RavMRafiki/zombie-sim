@@ -1,0 +1,16 @@
+"""Game constants and configuration"""
+
+GRID_SIZE = 256
+CELL_SIZE = 4
+WINDOW_SIZE = GRID_SIZE * CELL_SIZE
+MOVE_INTERVAL = 500  # milliseconds
+FPS = 60
+
+# Colors
+COLOR_BACKGROUND = (50, 50, 50)
+COLOR_GRID = (100, 100, 100)
+COLOR_ZOMBIE = (0, 255, 0)
+COLOR_HUMAN = (0, 0, 255)
+COLOR_INFECTED = (255, 165, 0)
+COLOR_MEDIC = (255, 0, 0)
+COLOR_SOLIDIER = (255, 255, 0)
