@@ -114,3 +114,22 @@ class Character:
     def get_type_name(self):
         """Return character type name"""
         return self.char_type_name
+
+    def get_surrounding_characters(self, radius=3):
+        """Get characters within a certain radius"""
+        if not self.grid:
+            return []
+        
+        nearby_characters = []
+        for character in self.grid.characters:
+            if character is self:
+                continue
+            
+            dx = self.x - character.x
+            dy = self.y - character.y
+            distance = math.sqrt(dx*dx + dy*dy)
+            
+            if distance <= radius:
+                nearby_characters.append(character)
+        
+        return nearby_characters
