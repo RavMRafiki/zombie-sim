@@ -27,15 +27,45 @@ class Character:
             self.process_signals()
             self.last_move_time = current_time
     
-    def move(self):
-        """Move character randomly in one of 4 directions"""
-        import random
-        direction = random.choice([(0, 1), (0, -1), (1, 0), (-1, 0)])
-        new_x = self.x + direction[0]
-        new_y = self.y + direction[1]
+    def move(self, position=None):
+        """Move character one tile towards target position or randomly
         
-        self.x = max(0, min(GRID_SIZE - 1, new_x))
-        self.y = max(0, min(GRID_SIZE - 1, new_y))
+        Args:
+            position: Tuple (x, y) of desired target position. If None, moves randomly.
+        """
+        import random
+        
+        if position is None:
+            direction = random.choice([(0, 1), (0, -1), (1, 0), (-1, 0)])
+            new_x = self.x + direction[0]
+            new_y = self.y + direction[1]
+        else:
+            target_x, target_y = position
+            
+            dx = target_x - self.x
+            dy = target_y - self.y
+            
+            new_x = self.x
+            new_y = self.y
+            
+            if abs(dx) > 0:
+                new_x = self.x + (1 if dx > 0 else -1)
+            elif abs(dy) > 0:
+                new_y = self.y + (1 if dy > 0 else -1)
+        
+        new_x = max(0, min(GRID_SIZE - 1, new_x))
+        new_y = max(0, min(GRID_SIZE - 1, new_y))
+        
+        occupied = False
+        if self.grid:
+            for character in self.grid.characters:
+                if character is not self and character.x == new_x and character.y == new_y:
+                    occupied = True
+                    break
+        
+        if not occupied:
+            self.x = new_x
+            self.y = new_y
     
     def act(self):
         """Perform character-specific action (override in subclasses)"""
