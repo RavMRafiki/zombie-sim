@@ -206,3 +206,7 @@ class Character:
         
         # Zamiana deque na numpy array (4, 11, 11)
         return np.array(self.state_buffer)
+    
+    def get_target_vector(self):
+        # Placeholder method to get target vector (dx, dy)
+        return np.array([0.0, 0.0], dtype=np.float32)

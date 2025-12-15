@@ -39,12 +39,22 @@ class Zombie(Character):
                     min_dist = dist
         
         # Logika "Węchu" (Reward Shaping)
-        if min_dist < self.prev_dist:
-            step_reward += 0.05 # Brawo, idziesz w dobrą stronę!
-        elif min_dist > self.prev_dist:
-            step_reward -= 0.05 # Źle, oddalasz się!
-                
-        self.prev_dist = min_dist
+        VIEW_RANGE = 5.0
+
+        if min_dist < float('inf'):
+            # Nagroda za zbliżanie się do najbliższego człowieka
+            if min_dist < VIEW_RANGE:
+                step_reward += (VIEW_RANGE - min_dist) * 0.2 # Im bliżej, tym większa nagroda
+
+                if min_dist < self.prev_dist:
+                    step_reward += 0.5 # Dodatkowa nagroda za dobry kierunek
+
+                elif min_dist > self.prev_dist:
+                    step_reward -= 0.5 # Kara za zły kierunek
+
+            self.prev_dist = min_dist
+        else:
+            self.prev_dist = float('inf')
         
         # Check if infection is off cooldown
         if current_time - self.last_infection_time < self.INFECTION_COOLDOWN:
@@ -86,3 +96,34 @@ class Zombie(Character):
         character.get_infected()
 
         return True
+
+    def get_target_vector(self):
+        """
+        Zwraca znormalizowany wektor [dx, dy] wskazujący na najbliższego człowieka.
+        Jeśli brak ludzi, zwraca [0, 0].
+        """
+        closest_human = None
+        min_dist = float('inf')
+        from human import Human
+        import numpy as np
+        
+        # Znajdź najbliższego człowieka (używając globalnej listy z gridu)
+        for char in self.grid.characters:
+            if isinstance(char, Human): # i ewentualnie Medic/Soldier
+                dist = (self.x - char.x)**2 + (self.y - char.y)**2 # Bez pierwiastka szybciej
+                if dist < min_dist:
+                    min_dist = dist
+                    closest_human = char
+                    
+        if closest_human is None:
+            return np.array([0.0, 0.0], dtype=np.float32)
+            
+        # Oblicz różnicę
+        dx = closest_human.x - self.x
+        dy = closest_human.y - self.y
+        
+        # Normalizacja wektora (żeby miał długość 1)
+        length = math.sqrt(dx**2 + dy**2)
+        if length == 0: return np.array([0.0, 0.0], dtype=np.float32)
+        
+        return np.array([dx / length, dy / length], dtype=np.float32)

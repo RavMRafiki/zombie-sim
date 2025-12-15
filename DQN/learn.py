@@ -1,18 +1,19 @@
 from DQN.q_network import ZombieQNetwork, ReplayBuffer
 import random
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 
 class DQNAgent:
-    def __init__(self, input_shape=(4, 11, 11), num_actions=5, learning_rate=0.001):
+    def __init__(self, input_shape=(4, 11, 11), num_actions=5, learning_rate=0.001, vector_size=2):
         print("Initializing DQN Agent...")
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         # --- 1. Mózgi Agenta (Policy i Target) ---
-        self.policy_net = ZombieQNetwork(input_shape, num_actions).to(self.device)
-        self.target_net = ZombieQNetwork(input_shape, num_actions).to(self.device)
+        self.policy_net = ZombieQNetwork(input_shape, num_actions, vector_size).to(self.device)
+        self.target_net = ZombieQNetwork(input_shape, num_actions, vector_size).to(self.device)
         
         # Kopiujemy wagi początkowe
         self.target_net.load_state_dict(self.policy_net.state_dict())
@@ -33,54 +34,72 @@ class DQNAgent:
 
     def get_action(self, state):
         """Podejmuje decyzję na podstawie stanu (4, 11, 11)"""
-        # Epsilon-Greedy Strategy
-        if random.random() < self.epsilon:
-            return random.randint(0, 4) # Losowa akcja (eksploracja)
+        # state to teraz krotka: (grid_obs, vector_obs)
+        grid_obs, vector_obs = state
         
-        state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device) # Dodajemy wymiar batcha: (1, 4, 11, 11)
+        if random.random() < self.epsilon:
+            return random.randint(0, 4)
+        
+        # Zamiana na tensory i dodanie wymiaru batch (unsqueeze)
+        grid_tensor = torch.FloatTensor(grid_obs).unsqueeze(0).to(self.device)
+        vec_tensor = torch.FloatTensor(vector_obs).unsqueeze(0).to(self.device)
         
         with torch.no_grad():
-            q_values = self.policy_net(state_tensor)
+            q_values = self.policy_net(grid_tensor, vec_tensor)
             
         return q_values.argmax().item() # Wybierz akcję z największym Q
 
     def learn(self):
-        """Główna pętla uczenia sieci"""
         if len(self.memory) < self.batch_size:
-            return # Za mało danych, żeby się uczyć
-
-        # 1. Pobierz losową paczkę z pamięci (Experience Replay)
+            return
+        
+        # Rozpakowujemy na kolumny. 
+        # Zmienna 'state' to teraz lista krotek: ((img1, vec1), (img2, vec2)...)
         state, action, reward, next_state, done = self.memory.sample(self.batch_size)
 
-        state = torch.FloatTensor(state).to(self.device)
-        next_state = torch.FloatTensor(next_state).to(self.device)
+        # --- TUTAJ JEST MAGIA ROZDZIELANIA ---
+        
+        # Rozdzielamy 'state' na listę obrazków i listę wektorów
+        state_imgs, state_vecs = zip(*state)
+        # To samo dla 'next_state'
+        next_state_imgs, next_state_vecs = zip(*next_state)
+
+        # 2. Tworzymy Tensory (osobno dla obrazów, osobno dla wektorów)
+        
+        # A. Obrazy
+        state_imgs = torch.FloatTensor(np.array(state_imgs)).to(self.device)
+        next_state_imgs = torch.FloatTensor(np.array(next_state_imgs)).to(self.device)
+        
+        # B. Wektory
+        state_vecs = torch.FloatTensor(np.array(state_vecs)).to(self.device)
+        next_state_vecs = torch.FloatTensor(np.array(next_state_vecs)).to(self.device)
+
+        # C. Reszta (bez zmian)
         action = torch.LongTensor(action).unsqueeze(1).to(self.device)
         reward = torch.FloatTensor(reward).unsqueeze(1).to(self.device)
         done = torch.FloatTensor(done).unsqueeze(1).to(self.device)
 
-        # 2. Oblicz Q(s, a) z PolicyNet
-        # gather wybiera Q-wartość tylko dla akcji, którą faktycznie wykonaliśmy
-        q_values = self.policy_net(state).gather(1, action)
+        # 3. Oblicz Q(s, a)
+        # Podajemy sieci DWA argumenty: obrazki i wektory
+        q_values = self.policy_net(state_imgs, state_vecs).gather(1, action)
 
-        # 3. Oblicz Q_target(s', a') z TargetNet
+        # 4. Oblicz Q_target
         with torch.no_grad():
-            next_q_values = self.target_net(next_state).max(1)[0].unsqueeze(1)
-            # Wzór Bellmana: R + gamma * max(Q_next)
-            # Jeśli done=1 (koniec gry), to nie ma przyszłości, zostaje samo R.
+            # Tutaj też podajemy dwa argumenty do TargetNet
+            next_q_values = self.target_net(next_state_imgs, next_state_vecs).max(1)[0].unsqueeze(1)
             expected_q_values = reward + (self.gamma * next_q_values * (1 - done))
 
-        # 4. Oblicz błąd (Loss) i zrób krok optymalizacji
+        # 5. Loss i optymalizacja (bez zmian)
         loss = F.mse_loss(q_values, expected_q_values)
         
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
 
-        # 5. Aktualizacja Epsilona (zmniejszamy losowość)
+        # Reszta funkcji (epsilon, target update) bez zmian...
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
-
-        # 6. Aktualizacja Target Network (Stabilizacja)
+            
         self.step_counter += 1
         if self.step_counter % self.update_target_every == 0:
             self.target_net.load_state_dict(self.policy_net.state_dict())

@@ -40,7 +40,7 @@ class Human(Character):
 
         # 3. Logika Strachu i Ucieczki
         SAFE_DISTANCE = 5.0 # Dystans, powyżej którego człowiek czuje się bezpiecznie
-        current_step_reward = 0.0
+        step_reward = 0.0
         
         if min_dist < float('inf'):
             # A. Kara za posiadanie zombie w otoczeniu (PANIKA)
@@ -48,16 +48,16 @@ class Human(Character):
                 # Im bliżej zombie, tym większa kara (np. od -0.1 do -1.0)
                 # Wzór: (SAFE - dist) * waga
                 panic_penalty = (SAFE_DISTANCE - min_dist) * 0.2
-                current_step_reward -= panic_penalty
+                step_reward -= panic_penalty
                 
                 # B. Nagroda za ucieczkę (Porównanie z poprzednią klatką)
                 # Jeśli dystans się zwiększył -> uciekasz -> BRAWO
                 if min_dist > self.prev_min_dist:
-                    current_step_reward += 0.5 # Nagroda za dobry kierunek ucieczki
+                    step_reward += 0.5 # Nagroda za dobry kierunek ucieczki
                 
                 # C. Kara za przybliżanie się do zombie (Samobójstwo)
                 elif min_dist < self.prev_min_dist:
-                    current_step_reward -= 0.5 # Kara za bieganie w stronę zagrożenia
+                    step_reward -= 0.5 # Kara za bieganie w stronę zagrożenia
             
             # Aktualizujemy pamięć na następną klatkę
             self.prev_min_dist = min_dist
@@ -86,9 +86,9 @@ class Human(Character):
             self.broadcast_threat_info(threats)
 
         if self.is_alive:
-            return current_step_reward + 1.0 # Nagroda za przeżycie
+            return step_reward + 0.1 # Nagroda za przeżycie
         
-        return current_step_reward
+        return step_reward
     
     def broadcast_threat_info(self, threats):
         """Broadcast threat information to nearby characters"""

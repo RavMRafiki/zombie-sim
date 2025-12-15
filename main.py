@@ -66,7 +66,14 @@ def update_game_logic(grid, global_map):
         
         # 1. OBSERWACJA (State)
         # Musisz napisać metodę get_observation(), która zwraca 4x11x11
-        current_state = char.get_observation(global_map) 
+        # 1. Pobierz obserwację wizualną
+        visual_state = char.get_observation(global_map)
+
+        # 2. Pobierz wektor celu (NOWOŚĆ)
+        vector_state = char.get_target_vector() 
+
+        # 3. Złóż w jeden stan
+        current_state = (visual_state, vector_state)
         
         # 2. DECYZJA (Action)
         if isinstance(char, Zombie):
@@ -83,7 +90,10 @@ def update_game_logic(grid, global_map):
         # Pobieramy nagrodę z interakcji (infekcja, przeżycie)
         reward = 0
         if not move_success:
-            reward -= 0.5 # Kara za uderzenie w krawędź
+            if isinstance(char, Zombie):
+                reward -= 0.1 # Kara za uderzenie w krawędź
+            elif isinstance(char, Human):
+                reward -= 0.5 
         done = False # Czy postać "skończyła grę" (zginęła)
         
         if isinstance(char, Zombie):
@@ -94,19 +104,21 @@ def update_game_logic(grid, global_map):
         elif isinstance(char, Human):
             reward += char.act() # Tu wróci +1 za przeżycie
             if not char.is_alive: # Ustalone w get_infected()
-                reward = -50
+                reward = -10
                 done = True
         
         # 4. NOWY STAN (Next State)
-        new_state = char.get_observation(global_map)
+        new_visual = char.get_observation(global_map)
+        new_vector = char.get_target_vector()
+        next_state = (new_visual, new_vector)
         
         # 5. NAUKA (Store & Learn)
         if isinstance(char, Zombie):
-            zombie_agent.memory.push(current_state, action, reward, new_state, done)
+            zombie_agent.memory.push(current_state, action, reward, next_state, done)
             zombie_agent.learn() # Odpalamy backpropagation
             
         elif isinstance(char, Human):
-            human_agent.memory.push(current_state, action, reward, new_state, done)
+            human_agent.memory.push(current_state, action, reward, next_state, done)
             human_agent.learn()
 
 if __name__ == "__main__":
