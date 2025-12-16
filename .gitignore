@@ -47,3 +47,4 @@ htmlcov/
 .venv
 env/
 venv/
+mutants/mutmut-stats.json

@@ -21,8 +21,9 @@ class Character:
         self.last_move_time = pygame.time.get_ticks()
         self.signals = []
         # Inicjalizacja pustego bufora (4 klatki, 11x11 zer)
-        self.state_buffer = deque(maxlen=4)
-        for _ in range(4):
+        INITIAL_STATE_FRAMES = 4
+        self.state_buffer = deque(maxlen=INITIAL_STATE_FRAMES)
+        for _ in range(INITIAL_STATE_FRAMES):
             self.state_buffer.append(np.zeros((11, 11)))
     
     def update(self, current_time):
@@ -63,7 +64,7 @@ class Character:
         elif action_code == 1: dy = 1 # Dół
         elif action_code == 2: dx = -1 # Lewo
         elif action_code == 3: dx = 1  # Prawo
-        elif action_code == 4: pass   # Czekaj
+        else: pass # Czekaj (brak ruchu)
 
         new_x = self.x + dx
         new_y = self.y + dy
