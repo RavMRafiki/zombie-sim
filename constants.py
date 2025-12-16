@@ -3,7 +3,7 @@
 GRID_SIZE = 256
 CELL_SIZE = 4
 WINDOW_SIZE = GRID_SIZE * CELL_SIZE
-MOVE_INTERVAL = 500  # milliseconds
+MOVE_INTERVAL = 100  # milliseconds
 FPS = 60
 
 # Colors

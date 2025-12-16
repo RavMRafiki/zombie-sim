@@ -2,6 +2,7 @@
 
 import random
 import pygame
+import numpy as np
 from zombie import Zombie
 from human import Human
 from infected import Infected
@@ -71,3 +72,19 @@ class Grid:
         medic_count = sum(1 for c in self.characters if isinstance(c, Medic))
         soldier_count = sum(1 for c in self.characters if isinstance(c, Soldier))
         return zombie_count, human_count, infected_count, medic_count, soldier_count
+
+    def get_global_map_matrix(self):
+        """
+        Tworzy macierz całej planszy (np. 128x128), gdzie:
+        0 = Pusto, 1 = Ściana (jeśli są), -1 = Zombie/Infected, 0.5 = Human/Medic/Soldier
+        Robimy to raz na klatkę, żeby było szybko.
+        """
+        matrix = np.zeros((GRID_SIZE, GRID_SIZE))
+        
+        for char in self.characters:
+            if isinstance(char, (Zombie, Infected)):
+                matrix[char.y, char.x] = -1.0 # Wrogowie
+            elif isinstance(char, (Human, Medic, Soldier)):
+                matrix[char.y, char.x] = 0.5  # Sojusznicy
+                
+        return matrix

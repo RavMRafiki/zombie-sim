@@ -3,6 +3,8 @@
 import pygame
 import math
 from constants import GRID_SIZE, CELL_SIZE, MOVE_INTERVAL
+import numpy as np
+from collections import deque
 
 
 class Character:
@@ -18,6 +20,10 @@ class Character:
         self.grid = grid
         self.last_move_time = pygame.time.get_ticks()
         self.signals = []
+        # Inicjalizacja pustego bufora (4 klatki, 11x11 zer)
+        self.state_buffer = deque(maxlen=4)
+        for _ in range(4):
+            self.state_buffer.append(np.zeros((11, 11)))
     
     def update(self, current_time):
         """Update character movement based on elapsed time"""
@@ -27,31 +33,43 @@ class Character:
             self.process_signals()
             self.last_move_time = current_time
     
-    def move(self, position=None):
+    def move(self, action_code=None):
         """Move character one tile towards target position or randomly
         
         Args:
             position: Tuple (x, y) of desired target position. If None, moves randomly.
         """
-        import random
+        # import random
         
-        if position is None:
-            direction = random.choice([(0, 1), (0, -1), (1, 0), (-1, 0)])
-            new_x = self.x + direction[0]
-            new_y = self.y + direction[1]
-        else:
-            target_x, target_y = position
+        # if position is None:
+        #     direction = random.choice([(0, 1), (0, -1), (1, 0), (-1, 0)])
+        #     new_x = self.x + direction[0]
+        #     new_y = self.y + direction[1]
+        # else:
+        #     target_x, target_y = position
             
-            dx = target_x - self.x
-            dy = target_y - self.y
+        #     dx = target_x - self.x
+        #     dy = target_y - self.y
             
-            new_x = self.x
-            new_y = self.y
+        #     new_x = self.x
+        #     new_y = self.y
             
-            if abs(dx) > 0:
-                new_x = self.x + (1 if dx > 0 else -1)
-            elif abs(dy) > 0:
-                new_y = self.y + (1 if dy > 0 else -1)
+        #     if abs(dx) > 0:
+        #         new_x = self.x + (1 if dx > 0 else -1)
+        #     elif abs(dy) > 0:
+        #         new_y = self.y + (1 if dy > 0 else -1)
+        dx, dy = 0, 0
+        if action_code == 0: dy = -1  # Góra
+        elif action_code == 1: dy = 1 # Dół
+        elif action_code == 2: dx = -1 # Lewo
+        elif action_code == 3: dx = 1  # Prawo
+        elif action_code == 4: pass   # Czekaj
+
+        new_x = self.x + dx
+        new_y = self.y + dy
+
+        if new_x < 0 or new_x >= GRID_SIZE or new_y < 0 or new_y >= GRID_SIZE:
+            return False # <--- Zwracamy Fałsz (uderzenie w krawędź)
         
         new_x = max(0, min(GRID_SIZE - 1, new_x))
         new_y = max(0, min(GRID_SIZE - 1, new_y))
@@ -66,6 +84,9 @@ class Character:
         if not occupied:
             self.x = new_x
             self.y = new_y
+            return True
+        else:
+            return False
     
     def act(self):
         """Perform character-specific action (override in subclasses)"""
@@ -133,3 +154,59 @@ class Character:
                 nearby_characters.append(character)
         
         return nearby_characters
+    
+    def get_observation(self, global_matrix):
+        """
+        Wyciąga wycinek 11x11 wokół postaci i aktualizuje stos 4 klatek.
+        Args:
+            global_matrix: Macierz całej planszy wygenerowana w Grid
+        Returns:
+            np.array o kształcie (4, 11, 11) gotowy dla sieci neuronowej
+        """
+        view_size = 11
+        radius = view_size // 2 # 5 kratek w każdą stronę
+        
+        # Tworzymy pustą macierz 11x11 wypełnioną 1 (traktujemy granice mapy jak ściany)
+        local_view = np.ones((view_size, view_size))
+        
+        # Obliczamy zakres wycinka (uważając na granice mapy)
+        x_start = self.x - radius
+        x_end = self.x + radius + 1
+        y_start = self.y - radius
+        y_end = self.y + radius + 1
+        
+        # Obliczamy indeksy w lokalnej macierzy (gdzie wkleić dane)
+        local_x_start = 0
+        local_x_end = view_size
+        local_y_start = 0
+        local_y_end = view_size
+        
+        # Przycinanie do granic mapy (jeśli jesteśmy przy krawędzi)
+        if x_start < 0:
+            local_x_start = -x_start # Przesuwamy początek wklejania
+            x_start = 0
+        if y_start < 0:
+            local_y_start = -y_start
+            y_start = 0
+        if x_end > GRID_SIZE:
+            local_x_end = view_size - (x_end - GRID_SIZE)
+            x_end = GRID_SIZE
+        if y_end > GRID_SIZE:
+            local_y_end = view_size - (y_end - GRID_SIZE)
+            y_end = GRID_SIZE
+
+        # Wycinamy fragment z dużej mapy i wklejamy do lokalnej
+        # Dzięki temu granice mapy (których nie nadpiszemy) zostaną jako 1 (ściana)
+        if x_end > x_start and y_end > y_start:
+            local_view[local_y_start:local_y_end, local_x_start:local_x_end] = \
+                global_matrix[y_start:y_end, x_start:x_end]
+                
+        # Frame Stacking - dodajemy nową klatkę, stara wypada
+        self.state_buffer.append(local_view)
+        
+        # Zamiana deque na numpy array (4, 11, 11)
+        return np.array(self.state_buffer)
+    
+    def get_target_vector(self):
+        # Placeholder method to get target vector (dx, dy)
+        return np.array([0.0, 0.0], dtype=np.float32)

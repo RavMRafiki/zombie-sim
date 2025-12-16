@@ -17,15 +17,53 @@ class Human(Character):
     
     def __init__(self, x, y, grid=None):
         super().__init__(x, y, grid)
+        self.is_alive = True
+        self.prev_min_dist = float('inf')
     
     def act(self):
         """Humans perform survival behavior - broadcast threat information"""
         if not self.grid:
-            return
+            return 0
         
         # Import here to avoid circular imports
         from zombie import Zombie
         from infected import Infected
+
+        min_dist = float('inf')
+        # Skanujemy otoczenie (można to ograniczyć np. do promienia wzroku dla optymalizacji)
+        for char in self.grid.characters:
+            if isinstance(char, (Zombie, Infected)):
+                # Obliczamy dystans euklidesowy
+                dist = math.sqrt((self.x - char.x)**2 + (self.y - char.y)**2)
+                if dist < min_dist:
+                    min_dist = dist
+
+        # 3. Logika Strachu i Ucieczki
+        SAFE_DISTANCE = 5.0 # Dystans, powyżej którego człowiek czuje się bezpiecznie
+        step_reward = 0.0
+        
+        if min_dist < float('inf'):
+            # A. Kara za posiadanie zombie w otoczeniu (PANIKA)
+            if min_dist < SAFE_DISTANCE:
+                # Im bliżej zombie, tym większa kara (np. od -0.1 do -1.0)
+                # Wzór: (SAFE - dist) * waga
+                panic_penalty = (SAFE_DISTANCE - min_dist) * 0.2
+                step_reward -= panic_penalty
+                
+                # B. Nagroda za ucieczkę (Porównanie z poprzednią klatką)
+                # Jeśli dystans się zwiększył -> uciekasz -> BRAWO
+                if min_dist > self.prev_min_dist:
+                    step_reward += 0.5 # Nagroda za dobry kierunek ucieczki
+                
+                # C. Kara za przybliżanie się do zombie (Samobójstwo)
+                elif min_dist < self.prev_min_dist:
+                    step_reward -= 0.5 # Kara za bieganie w stronę zagrożenia
+            
+            # Aktualizujemy pamięć na następną klatkę
+            self.prev_min_dist = min_dist
+        else:
+            # Jeśli nie ma zombie na mapie (rzadkie), resetujemy pamięć
+            self.prev_min_dist = float('inf')
         
         # Scan for zombies and infected nearby
         threats = []
@@ -46,6 +84,11 @@ class Human(Character):
         # Broadcast threat information if threats detected
         if threats:
             self.broadcast_threat_info(threats)
+
+        if self.is_alive:
+            return step_reward + 0.1 # Nagroda za przeżycie
+        
+        return step_reward
     
     def broadcast_threat_info(self, threats):
         """Broadcast threat information to nearby characters"""
@@ -67,3 +110,8 @@ class Human(Character):
                     "source_pos": (self.x, self.y),
                     "threats": threats
                 })
+
+    def get_infected(self):
+        """Metoda wywoływana przez Zombie, gdy infekcja się uda."""
+        self.is_alive = False
+        print(f"Człowiek {id(self)} został zarażony! Kara -50")
