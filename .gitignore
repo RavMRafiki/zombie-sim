@@ -51,3 +51,8 @@ mutants/mutmut-stats.json
 *.pdf
 *.aux
 *.log
+dokumentacja.fdb_latexmk
+dokumentacja.fls
+dokumentacja.out
+dokumentacja.synctex.gz
+dokumentacja.toc
