@@ -175,30 +175,13 @@ class Zombie(Character):
         """
         Wysyła sygnał do innych Zombie: 'Znalazłem jedzenie tutaj!'
         """
-        if not self.grid: return
-        
-        # Ograniczenie częstotliwości (opcjonalne, ale zalecane dla wydajności)
-        # Można dodać self.last_broadcast_time jak u Medyka
-        
-        for character in self.grid.characters:
-            if character is self: continue
-            
-            # Wysyłamy TYLKO do innych Zombie (i Infected)
-            # Używamy stringów nazw klas lub isinstance
-            if character.char_type_name not in ["Zombie", "Infected"]:
-                continue
-            
-            dx = self.x - character.x
-            dy = self.y - character.y
-            dist = math.sqrt(dx*dx + dy*dy)
-            
-            if dist <= self.BROADCAST_RANGE:
-                if hasattr(character, 'receive_signal'):
-                    character.receive_signal("prey_spotted", {
-                        "source": self,
-                        "prey_pos": prey_pos,
-                        "dist_to_prey": dist # Informacyjnie
-                    })
+        self.send_signal(
+            signal_type="prey_spotted",
+            broadcast_range=self.BROADCAST_RANGE,
+            data={
+                "prey_pos": prey_pos
+            }
+        )
 
     def infect_character(self, character):
         """Convert a character to infected"""

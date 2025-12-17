@@ -16,7 +16,7 @@ class Human(Character):
     
     # Zasięgi
     THREAT_DETECTION_RANGE = 4.0   # Zasięg wzroku (widzi zombie)
-    THREAT_BROADCAST_RANGE = 25.0  # Zasięg krzyku (ostrzega innych)
+    THREAT_BROADCAST_RANGE = 45.0  # Zasięg krzyku (ostrzega innych)
     
     def __init__(self, x, y, grid=None):
         super().__init__(x, y, grid)
@@ -154,23 +154,13 @@ class Human(Character):
     
     def broadcast_threat_info(self, threats):
         """Broadcast threat information to nearby characters"""
-        if not self.grid: return
-
-        for character in self.grid.characters:
-            if character is self: continue
-            
-            dx = self.x - character.x
-            dy = self.y - character.y
-            distance = math.sqrt(dx*dx + dy*dy)
-            
-            if distance <= self.THREAT_BROADCAST_RANGE:
-                # Upewniamy się, że obiekt ma metodę receive_signal
-                if hasattr(character, 'receive_signal'):
-                    character.receive_signal("threat_alert", {
-                        "source": self,
-                        "source_pos": (self.x, self.y),
-                        "threats": threats
-                    })
+        self.send_signal(
+            signal_type="threat_alert",
+            broadcast_range=self.THREAT_BROADCAST_RANGE,
+            data={
+                "threats": threats
+            }
+        )
 
     def get_infected(self):
         """Metoda wywoływana przez Zombie, gdy infekcja się uda."""
@@ -181,20 +171,8 @@ class Human(Character):
 
     def broadcast_help_request(self):
         """Broadcast help request to nearby characters (for Medics)"""
-        if not self.grid: return
-        
-        for character in self.grid.characters:
-            if character is self: continue
-            
-            dx = self.x - character.x
-            dy = self.y - character.y
-            distance = math.sqrt(dx*dx + dy*dy)
-            
-            # Możemy krzyczeć dalej niż widzieć zagrożenie (np. 10 kratek)
-            if distance <= 256:
-                if hasattr(character, 'receive_signal'):
-                    character.receive_signal("medic_requested", {
-                        "source": self, # Przekazujemy obiekt (Medyk go użyje jako celu)
-                        "source_pos": (self.x, self.y),
-                        "distance": distance
-                    })
+        self.send_signal(
+            signal_type="medic_requested",
+            broadcast_range=self.THREAT_BROADCAST_RANGE,
+            data={} # Pusty słownik, bo kluczowe są 'source' i 'source_pos', które dodają się same
+        )
