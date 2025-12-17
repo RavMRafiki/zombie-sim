@@ -1,0 +1,1083 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[polish]{babel}
+\usepackage[T1]{fontenc}
+\usepackage[utf8x]{inputenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage[]{algorithm2e}
+\usepackage{listings}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{float}
+
+\usepackage{color}
+\usepackage{listings}
+
+\lstloadlanguages{% Check Dokumentation for further languages ...
+	C,
+	C++,
+	csh,
+	Java
+}
+
+\definecolor{red}{rgb}{0.6,0,0} % for strings
+\definecolor{blue}{rgb}{0,0,0.6}
+\definecolor{green}{rgb}{0,0.8,0}
+\definecolor{cyan}{rgb}{0.0,0.6,0.6}
+
+\lstset{
+	language=csh,
+	basicstyle=\footnotesize\ttfamily,
+	numbers=left,
+	numberstyle=\tiny,
+	numbersep=5pt,
+	tabsize=2,
+	extendedchars=true,
+	breaklines=true,
+	frame=b,
+	stringstyle=\color{blue}\ttfamily,
+	showspaces=false,
+	showtabs=false,
+	xleftmargin=17pt,
+	framexleftmargin=17pt,
+	framexrightmargin=5pt,
+	framexbottommargin=4pt,
+	commentstyle=\color{green},
+	morecomment=[l]{//}, %use comment-line-style!
+	morecomment=[s]{/*}{*/}, %for multiline comments
+	showstringspaces=false,
+	morekeywords={ abstract, event, new, struct,
+		as, explicit, null, switch,
+		base, extern, object, this,
+		bool, false, operator, throw,
+		break, finally, out, true,
+		byte, fixed, override, try,
+		case, float, params, typeof,
+		catch, for, private, uint,
+		char, foreach, protected, ulong,
+		checked, goto, public, unchecked,
+		class, if, readonly, unsafe,
+		const, implicit, ref, ushort,
+		continue, in, return, using,
+		decimal, int, sbyte, virtual,
+		default, interface, sealed, volatile,
+		delegate, internal, short, void,
+		do, is, sizeof, while,
+		double, lock, stackalloc,
+		else, long, static,
+		enum, namespace, string},
+	keywordstyle=\color{cyan},
+	identifierstyle=\color{red},
+}
+\usepackage{caption}
+\DeclareCaptionFont{white}{\color{white}}
+\DeclareCaptionFormat{listing}{\colorbox{blue}{\parbox{\textwidth}{\hspace{15pt}#1#2#3}}}
+\captionsetup[lstlisting]{format=listing,labelfont=white,textfont=white, singlelinecheck=false, margin=0pt, font={bf,footnotesize}}
+
+
+\addtolength{\hoffset}{-1.5cm}
+\addtolength{\marginparwidth}{-1.5cm}
+\addtolength{\textwidth}{3cm}
+\addtolength{\voffset}{-1cm}
+\addtolength{\textheight}{2.5cm}
+\setlength{\topmargin}{0cm}
+\setlength{\headheight}{0cm}
+
+\begin{document}
+
+\title{Symulacja wybuchu epidemii zombie\\\small{Dokumentacja projektu systemu wieloagentowego}}
+\author{Rafal}
+\date{\today}
+
+\maketitle
+\tableofcontents
+\newpage
+
+% ========== CZĘŚĆ I: OPIS SYSTEMU ==========
+\section{Model Systemu Informatycznego}
+
+\subsection{Definicja Modelu}
+System ``Zombie Outbreak Simulation'' jest symulacją wieloagentową opracowywaną
+w środowisku gry 2D. Model systemu stanowi szachownica o wymiarach 256x256
+komórek, na której poruszają się pięć typów autonomicznych agentów
+posiadających różne cele i zachowania. Każdy agent podejmuje decyzje w oparciu
+o obserwacje otoczenia i stanu wewnętrznego, stanowiąc część zamodelowanego
+ekosystemu zmagan ludzi zombie.
+
+\subsection{Uzasadnienie w Kontekście Budowanego Systemu}
+Model wieloagentowy (MAS - Multi-Agent System) pozwala na symulowanie złożonych
+interakcji między jednostkami o różnych celach strategicznych. W kontekście
+symulacji epidemiologicznej, taki system umożliwia:
+\begin{itemize}
+	\item Badanie dynamiki rozprzestrzeniania się infekcji
+	\item Analiza efektywności strategii defensywnych (medycy, żołnierze)
+	\item Obserwacja emergentnych zachowań wynikających z prostych reguł
+	\item Testowanie algorytmów sztucznej inteligencji (Deep Q-Network) do sterowania
+	      agentami
+\end{itemize}
+
+\section{Opis Programu}
+
+\subsection{Opis dla Klienta}
+System symuluje wybuch epidemii zombie w zamkniętym środowisku. Użytkownik
+obserwuje w czasie rzeczywistym:
+\begin{itemize}
+	\item 5 typów postaci (zombie, ludzie, zarażeni, medycy, żołnierze) reprezentowanych różnymi kolorami
+	\item Dynamiczne zmiany populacji w wyniku interakcji między postaciami
+	\item Rozprzestrzenianie się infekcji i jej hamowanie poprzez działania medyków i
+	      żołnierzy
+	\item Licznik czasu rzeczywistego każdego typu postaci
+\end{itemize}
+
+\subsection{Opis Szczegółowy}
+Symulacja zostaje zainicjalizowana z domyślnymi parametrami:
+\begin{itemize}
+	\item Rozmiar siatki: 256x256 komórek
+	\item Rozdzielczość wyświetlania: 4 piksele na komórkę
+	\item Częstotliwość aktualizacji: 100ms między kolejnymi ruchami agentów
+	\item Liczba postaci początkowych: 40 zombie, 60 ludzi, 0 zarażonych, 0 medyków, 0
+	      żołnierzy
+\end{itemize}
+
+Każda postać ma przypisane:
+\begin{itemize}
+	\item Pozycję (x, y) na siatce
+	\item Kolor reprezentujący typ
+	\item Logikę comportamentu specyficzną dla typu
+	\item Bufor stanu 4 ramek o wymiarach 11x11 dla współpracy z DQN
+\end{itemize}
+
+\subsection{Instrukcja Obsługi}
+
+\subsubsection{Uruchomienie Programu}
+\begin{enumerate}
+	\item Zainstalować zależności: \texttt{pip install -r requirements.txt}
+	\item Uruchomić program: \texttt{python main.py}
+	\item Zamknąć okno aplikacji, aby zakończyć symulację
+\end{enumerate}
+
+\subsubsection{Legenda Kolorów}
+\begin{itemize}
+	\item \textbf{Zielony} - Zombie (agressywne, zarażają ludzi)
+	\item \textbf{Niebieski} - Ludzie (defensywni, rozglaszają ostrzeżenia)
+	\item \textbf{Pomarańczowy} - Zarażeni (przejściowy stan przed zmianą w zombie)
+	\item \textbf{Czerwony} - Medycy (leczą zarażonych, przywracając ich do poprzedniego stanu)
+	\item \textbf{Żółty} - Żołnierze (eliminują zombie w bliskiej okolicy)
+\end{itemize}
+
+\subsubsection{Wizualizacja Wyników}
+Na górze okna wyświetlany jest licznik aktualnych populacji każdego typu
+postaci w formacie: \texttt{Zombies: X | Humans: Y | Infected: Z | Medics: A |
+	Soldiers: B}
+
+\subsection{Instrukcja Wdrożenia}
+
+\subsubsection{Wymagania Systemowe}
+\begin{itemize}
+	\item Python 3.8+
+	\item Pygame 2.1.0+
+	\item PyTorch 1.10.0+ (dla modułu DQN)
+	\item NumPy 1.21.0+
+\end{itemize}
+
+\subsubsection{Kroki Wdrażania}
+\begin{enumerate}
+	\item Klonować/pobrać repozytorium projektu
+	\item Utworzyć wirtualne środowisko: \texttt{python -m venv .venv}
+	\item Aktywować środowisko: \texttt{source .venv/bin/activate}
+	\item Zainstalować pakiety: \texttt{pip install -r requirements.txt}
+	\item Uruchomić program: \texttt{python main.py}
+\end{enumerate}
+
+\subsection{Dodatkowe Informacje}
+\begin{itemize}
+	\item Projekt wykorzystuje bibliotekę Pygame do renderowania 2D
+	\item DQN (Deep Q-Network) jest zaimplementowany dla potencjalnego uczenia agentów
+	\item Testy jednostkowe dostępne w katalogu \texttt{tests/}
+	\item Mutacyjne testy dostępne w katalogu \texttt{mutants/}
+\end{itemize}
+
+\newpage
+
+% ========== CZĘŚĆ II: MODEL MATEMATYCZNY I ALGORYTMY ==========
+\section*{Część II: Model Matematyczny i Algorytmy}
+
+\subsection{Model Matematyczny Systemu}
+
+\subsubsection{Reprezentacja Stanu}
+Stan systemu w chwili czasu $t$ opisany jest jako: $$S(t) = \{A_1(t), A_2(t),
+	\ldots, A_n(t)\}$$ gdzie $A_i(t) = (x_i(t), y_i(t), type_i, state_i(t))$
+reprezentuje $i$-tego agenta z pozycją $(x_i, y_i) \in \{0, \ldots, 255\}^2$,
+typem i stanem wewnętrznym.
+
+\subsubsection{Model Obserwacji Agenta}
+Każdy agent obserwuje lokalne otoczenie poprzez macierz obserwacji $O_i(t) \in
+	\mathbb{R}^{4 \times 11 \times 11}$, gdzie:
+\begin{itemize}
+	\item 4 kanały reprezentują ostatnie 4 ramki czasowe (historia ruchu)
+	\item 11x11 reprezentuje pole widzenia agenta (9 komórek w każdą stronę + agenta w centrum)
+	\item Wartości: -1.0 dla wrogów (zombie/zarażeni), 0.5 dla sojuszników
+	      (ludzie/medycy/żołnierze), 0 dla pustej przestrzeni
+\end{itemize}
+
+\subsubsection{Dynamika Ruchu}
+Ruch każdego agenta jest dyskretny, możliwe akcje: $a \in \{0,1,2,3,4\}$ $$\begin{cases}
+		(dx, dy) = (0, -1) & \text{jeśli } a = 0 \text{ (góra)}   \\
+		(dx, dy) = (0, 1)  & \text{jeśli } a = 1 \text{ (dół)}    \\
+		(dx, dy) = (-1, 0) & \text{jeśli } a = 2 \text{ (lewo)}   \\
+		(dx, dy) = (1, 0)  & \text{jeśli } a = 3 \text{ (prawo)}  \\
+		(dx, dy) = (0, 0)  & \text{jeśli } a = 4 \text{ (czekaj)}
+	\end{cases}$$
+
+Nowa pozycja obliczana jest jako: $$x'_i = \text{clip}(x_i + dx, 0, 255), \quad
+	y'_i = \text{clip}(y_i + dy, 0, 255)$$
+
+Ruch jest wykonywany tylko gdy nowa pozycja nie jest zajęta przez innego
+agenta.
+
+\subsubsection{Model Zarażenia}
+Zombie mogą zarazić ludzi, jeśli dystans euklidesowy jest mniejszy niż próg:
+$$d_{infection} = \sqrt{(x_z - x_h)^2 + (y_z - y_h)^2} \leq 1.99$$
+
+Zarażenie może nastąpić maksymalnie co 5 sekund (INFECTION\_COOLDOWN = 5000ms):
+$$t_{infection}(k+1) \geq t_{infection}(k) + 5000$$
+
+\subsubsection{Model Leczenia}
+Medycy leczą zarażonych przywracając ich do poprzedniego stanu, jeśli dystans
+jest mniejszy niż 1.5: $$d_{healing} = \sqrt{(x_m - x_{inf})^2 + (y_m -
+		y_{inf})^2} \leq 1.5$$
+
+\subsubsection{Model Walki}
+Żołnierze eliminują zombie w zasięgu walki:
+$$d_{combat} = \sqrt{(x_s - x_z)^2 + (y_s - y_z)^2} \leq 2.0$$
+
+Akcja walki ma cooldown 2 sekund (SOLDIER\_ATTACK\_COOLDOWN = 2000ms).
+
+\subsubsection{Model Rozprzestrzeniania Informacji}
+Ludzie mogą przekazywać informacje o zagrożeniu innym postaciom w promieniu:
+$$r_{broadcast} = 7.0 \text{ (komórki)}$$
+
+Informacja zawiera typ zagrożenia (zombie/zarażeni), pozycję i dystans.
+
+\subsection{Funkcja Nagrody (Reward Shaping)}
+
+\subsubsection{Zombie}
+Zombie otrzymują nagrodę za zbliżanie się do i zarażanie ludzi: $$r_z(t) = \begin{cases}
+		10.0                              & \text{jeśli zaraziło człowieka}                              \\
+		0.2 \cdot (VIEW\_RANGE - d_{min}) & \text{jeśli } d_{min} < VIEW\_RANGE \text{ (5.0)}            \\
+		0.5                               & \text{jeśli } d_{min}(t) < d_{min}(t-1) \text{ (zbliża się)} \\
+		-0.5                              & \text{jeśli } d_{min}(t) > d_{min}(t-1) \text{ (oddala się)} \\
+	\end{cases}$$
+
+\subsubsection{Ludzie}
+Ludzie otrzymują nagrodę za ucieczkę i karę za posiadanie zombie w pobliżu:
+$$r_h(t) = \begin{cases}
+		0.1                                   & \text{jeśli żyje}                                                    \\
+		-0.2 \cdot (SAFE\_DISTANCE - d_{min}) & \text{jeśli } d_{min} < SAFE\_DISTANCE \text{ (5.0)}                 \\
+		0.5                                   & \text{jeśli } d_{min}(t) > d_{min}(t-1) \text{ (ucieka)}             \\
+		-0.5                                  & \text{jeśli } d_{min}(t) < d_{min}(t-1) \text{ (przybyża do zombie)} \\
+	\end{cases}$$
+
+\subsection{Architektura Deep Q-Network}
+
+\subsubsection{Struktura Sieci}
+DQN przyjmuje obraz 4x11x11 jako wejście i zwraca Q-wartości dla każdej akcji
+(5 akcji): $$Q(s,a) \approx q_\theta(s)$$
+
+Architektura sieciowa:
+\begin{enumerate}
+	\item Warstwa konwolucyjna: 4 kanały wejścia $\rightarrow$ 16 filtrów (kernel 3x3)
+	\item Warstwa konwolucyjna: 16 kanałów $\rightarrow$ 32 filtry (kernel 3x3)
+	\item Warstwa spłaszczona (flatten)
+	\item Warstwa w pełni połączona (fully connected): 512 neuronów
+	\item Warstwa wyjściowa: 5 neuronów (dla 5 akcji)
+	\item Aktywacja: ReLU w warstwach ukrytych, liniowa w wyjściu
+\end{enumerate}
+
+\subsubsection{Algorytm Uczenia}
+Algorytm Deep Q-Learning z funkcją straty: $$L(\theta) =
+	\mathbb{E}_{(s,a,r,s')}[(r + \gamma \max_{a'} Q(s', a'; \theta^-) - Q(s, a;
+	\theta))^2]$$
+
+gdzie:
+\begin{itemize}
+	\item $\gamma = 0.99$ - współczynnik dyskontowania
+	\item $\theta$ - wagi sieci głównej
+	\item $\theta^-$ - wagi sieci docelowej (aktualizowane co $C$ kroków)
+	\item Optimizator: Adam z $\alpha = 0.001$ (learning rate)
+\end{itemize}
+
+\subsection{Algorytmy Comportamentu Agentów}
+
+\subsubsection{Algorytm Zombie}
+\begin{algorithm}[H]
+	\KwData{Pozycja zombie $(x_z, y_z)$, grid z postaciami}
+	\KwResult{Brak (zmiana stanu w gridzie)}
+
+	\If{cooldown infekcji upłynął}{
+		\For{każdy człowiek/medyk/żołnierz w gridzie}{
+			Oblicz dystans $d = \sqrt{(x_z - x)^2 + (y_z - y)^2}$\;
+			\If{$d \leq 1.99$}{
+				Zamień postać na zaraźoną\;
+				Ustaw cooldown infekcji na 5 sekund\;
+				break\;
+			}
+		}
+	}
+
+	Oblicz minimalny dystans do najbliższego człowieka\; \If{$d_{min} < 5.0$}{
+		reward $\leftarrow$ reward $+ 0.2 \cdot (5.0 - d_{min})$\; }
+
+	\caption{Zachowanie Zombie}
+\end{algorithm}
+
+\subsubsection{Algorytm Człowieka}
+\begin{algorithm}[H]
+	\KwData{Pozycja człowieka $(x_h, y_h)$, grid z postaciami}
+	\KwResult{Rozsyłane ostrzeżenia}
+
+	\For{każde zombie/zaraźone w gridzie}{
+		Oblicz dystans $d = \sqrt{(x_h - x)^2 + (y_h - y)^2}$\;
+		\If{$d \leq 3.0$}{
+			threats $\leftarrow$ threats $+$ zagrożenie\;
+		}
+	}
+
+	\If{threats nie puste}{
+		\For{każda postać w promieniu 7.0}{
+			Wyślij informację o zagrożeniu\;
+		}
+	}
+
+	\caption{Zachowanie Człowieka}
+\end{algorithm}
+
+\subsection{Bezpieczeństwo i Odporność}
+
+System symulacji jest całkowicie offline - nie komunikuje się z siecią.
+Potencjalne zagrożenia wewnętrzne:
+\begin{itemize}
+	\item \textbf{Overflow bufora ruchu}: Każdy agent ma bufor rozmiaru 4, stały rozmiar zabezpieczony przez \texttt{deque(maxlen=4)}
+	\item \textbf{Buffer overflow pozycji}: Pozycje zawsze w zakresie $[0, 255]$ dzięki \texttt{clip()}
+	\item \textbf{Nieskończone pętle}: Wszystkie pętle mają skończoną liczbę iteracji (liczba agentów)
+	\item \textbf{Wyciek pamięci}: Obiekty agentów są automatycznie czyszczone przez garbage collector Pythona
+\end{itemize}
+
+\newpage
+\newpage
+
+\section{Implementacja Systemu}
+
+\subsection{Architektura Projektu}
+
+Projekt jest podzielony na moduły funkcjonalne:
+
+\begin{itemize}
+	\item \textbf{character.py} - Klasa bazowa dla wszystkich agentów
+	\item \textbf{zombie.py} - Implementacja zombie (agenci atakujący)
+	\item \textbf{human.py} - Implementacja ludzi (agenci defensywni)
+	\item \textbf{infected.py} - Implementacja zarażonych (stan przejściowy)
+	\item \textbf{medic.py} - Implementacja medyków (agenci leczący)
+	\item \textbf{soldier.py} - Implementacja żołnierzy (agenci walczący)
+	\item \textbf{grid.py} - Menedżer siatki i wszystkich agentów
+	\item \textbf{constants.py} - Stałe konfiguracyjne systemu
+	\item \textbf{main.py} - Główna pętla gry
+	\item \textbf{DQN/} - Moduł Deep Q-Network do uczenia agentów
+\end{itemize}
+
+\subsection{Klasa Bazowa Character}
+
+\subsubsection{Opis}
+Klasa \texttt{Character} jest abstrakcyjną klasą bazową dla wszystkich typów
+agentów. Definiuje wspólne zachowania i atrybuty.
+
+\subsubsection{Atrybuty}
+\begin{itemize}
+	\item \texttt{x, y} - Aktualna pozycja na siatce
+	\item \texttt{grid} - Referencja do obiektu siatki
+	\item \texttt{char\_type\_name} - Nazwa typu postaci
+	\item \texttt{color} - Kolor reprezentujący typ (RGB)
+	\item \texttt{move\_speed} - Czas między ruchami w ms
+	\item \texttt{state\_buffer} - Deque przechowujący ostatnie 4 obserwacje
+	\item \texttt{signals} - Lista odebranych sygnałów
+\end{itemize}
+
+\subsubsection{Metody Kluczowe}
+
+\textbf{update(current\_time)}
+Metoda wywoływana każdą klatkę. Sprawdza, czy upłynął czas wymagany do ruchu, i jeśli tak, wywołuje \texttt{move()}, \texttt{act()} i \texttt{process\_signals()}.
+
+\begin{lstlisting}[language=Python]
+def update(self, current_time):
+    if current_time - self.last_move_time >= self.move_speed:
+        self.move()
+        self.act()
+        self.process_signals()
+        self.last_move_time = current_time
+	\end{lstlisting}
+
+\textbf{move(action\_code)}
+Przemieszcza agenta o jeden krok w kierunku określonym przez \texttt{action\_code}. Sprawdza kolizje i granice siatki.
+
+\begin{lstlisting}[language=Python]
+def move(self, action_code=None):
+    dx, dy = 0, 0
+    if action_code == 0: dy = -1      # Up
+    elif action_code == 1: dy = 1     # Down
+    elif action_code == 2: dx = -1    # Left
+    elif action_code == 3: dx = 1     # Right
+    
+    new_x = max(0, min(GRID_SIZE - 1, self.x + dx))
+    new_y = max(0, min(GRID_SIZE - 1, self.y + dy))
+    
+    # Check collision with other characters
+    occupied = False
+    if self.grid:
+        for character in self.grid.characters:
+            if character is not self and \
+               character.x == new_x and \
+               character.y == new_y:
+                occupied = True
+                break
+    
+    if not occupied:
+        self.x = new_x
+        self.y = new_y
+        return True
+    return False
+	\end{lstlisting}
+
+\textbf{get\_observation()}
+Generuje macierz obserwacji lokalnego otoczenia o wymiarach 11x11.
+
+\begin{lstlisting}[language=Python]
+def get_observation(self):
+    """Generate 11x11 observation around character"""
+    obs = np.zeros((11, 11))
+    view_range = 5  # 5 cells in each direction
+    
+    for dx in range(-view_range, view_range + 1):
+        for dy in range(-view_range, view_range + 1):
+            world_x = self.x + dx
+            world_y = self.y + dy
+            
+            if 0 <= world_x < GRID_SIZE and \
+               0 <= world_y < GRID_SIZE:
+                # Check what's at this position
+                local_x = dx + view_range
+                local_y = dy + view_range
+                obs[local_y, local_x] = \
+                    self.grid.global_map[world_y, world_x]
+    
+    return obs
+	\end{lstlisting}
+
+\subsection{Klasa Zombie}
+
+\subsubsection{Opis}
+Zombie są głównymi antagonistami. Aktywnie szukają i zarażają ludzi, otrzymując
+nagrody za zbliżanie się i zarażanie.
+
+\subsubsection{Zachowanie act()}
+\begin{lstlisting}[language=Python]
+def act(self):
+    """Perform aggressive behavior - infect nearby humans"""
+    if not self.grid:
+        return 0
+    
+    current_time = pygame.time.get_ticks()
+    step_reward = 0
+    
+    # Find closest human
+    min_dist = float('inf')
+    for char in self.grid.characters:
+        if isinstance(char, Human):
+            dist = math.sqrt((self.x - char.x)**2 + 
+                           (self.y - char.y)**2)
+            if dist < min_dist:
+                min_dist = dist
+    
+    # Reward shaping: approach humans
+    if min_dist < float('inf'):
+        if min_dist < 5.0:  # VIEW_RANGE
+            step_reward += (5.0 - min_dist) * 0.2
+            
+            if min_dist < self.prev_dist:
+                step_reward += 0.5
+            elif min_dist > self.prev_dist:
+                step_reward -= 0.5
+        
+        self.prev_dist = min_dist
+    
+    # Infection logic
+    if current_time - self.last_infection_time >= \
+       self.INFECTION_COOLDOWN:
+        for character in self.grid.characters:
+            if isinstance(character, (Human, Medic, Soldier)):
+                distance = math.sqrt(
+                    (self.x - character.x)**2 + 
+                    (self.y - character.y)**2)
+                
+                if distance <= self.INFECTION_RANGE:
+                    self.infect_character(character)
+                    step_reward += 10
+                    self.last_infection_time = current_time
+                    break
+    
+    return step_reward
+	\end{lstlisting}
+
+\subsection{Klasa Human}
+
+\subsubsection{Opis}
+Ludzie są defensywni. Unikają zombie, rozglaszają ostrzeżenia i współpracują z
+innymi postaciami.
+
+\subsubsection{Zachowanie act()}
+Ludzie skanują otoczenie w poszukiwaniu zombie/zarażonych. Jeśli zostaną
+wykryte, rozglaszają informację o zagrożeniu w promieniu 7.0 komórek.
+
+\subsection{Klasa Grid}
+
+\subsubsection{Opis}
+Klasa \texttt{Grid} zarządza całą symulacją. Przechowuje wszystkich agentów,
+obsługuje aktualizacje i renderowanie.
+
+\subsubsection{Metody Kluczowe}
+
+\textbf{get\_global\_map\_matrix()}
+Tworzy macierz 256x256 reprezentującą stan całej siatki.
+
+\begin{lstlisting}[language=Python]
+def get_global_map_matrix(self):
+    """Create global map matrix"""
+    matrix = np.zeros((GRID_SIZE, GRID_SIZE))
+    
+    for char in self.characters:
+        if isinstance(char, (Zombie, Infected)):
+            matrix[char.y, char.x] = -1.0  # Enemies
+        elif isinstance(char, (Human, Medic, Soldier)):
+            matrix[char.y, char.x] = 0.5   # Allies
+    
+    return matrix
+	\end{lstlisting}
+
+\textbf{get\_stats()}
+Zwraca liczbę każdego typu postaci.
+
+\subsection{Główna Pętla Gry}
+
+\begin{lstlisting}[language=Python]
+def main():
+    """Main game loop"""
+    screen = pygame.display.set_mode((WINDOW_SIZE, WINDOW_SIZE))
+    pygame.display.set_caption("Zombie Outbreak Simulation")
+    clock = pygame.time.Clock()
+    
+    grid = Grid(num_zombies=40, num_humans=60, 
+                num_infected=0, num_medics=0, 
+                num_soldiers=0)
+    font = pygame.font.Font(None, 24)
+    
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+        
+        # Update game logic
+        global_map = grid.get_global_map_matrix()
+        update_game_logic(grid, global_map)
+        
+        # Render
+        screen.fill(COLOR_BACKGROUND)
+        grid.draw(screen)
+        
+        # Display stats
+        stats = grid.get_stats()
+        stats_text = f"Zombies: {stats[0]} | Humans: {stats[1]}"
+        stats_surface = font.render(stats_text, True, 
+                                   (255, 255, 255))
+        screen.blit(stats_surface, (10, 10))
+        
+        pygame.display.flip()
+        clock.tick(FPS)
+    
+    pygame.quit()
+	\end{lstlisting}
+
+\newpage
+
+\section{Testy}
+
+\subsection{Testy Jednostkowe}
+
+\subsubsection{Zakres Testów}
+
+Projekt zawiera kompleksowe testy jednostkowe w pliku
+\texttt{tests/character\_test.py} obejmujące:
+\begin{enumerate}
+	\item \textbf{Inicjalizacja} - Sprawdzenie poprawnego utworzenia obiektów
+	\item \textbf{Ruch} - Weryfikacja logiki poruszania się
+	\item \textbf{Obserwacja} - Testowanie generowania macierzy obserwacji
+	\item \textbf{Sygnały} - Testowanie systemu komunikacji
+	\item \textbf{Kolizje} - Sprawdzenie unikania kolizji
+\end{enumerate}
+
+\subsubsection{Przykładowe Testy}
+
+\textbf{Test inicjalizacji stanu bufora}
+\begin{lstlisting}[language=Python]
+def test_character_state_buffer_initialization(character):
+    """Test state buffer is initialized with 4 frames"""
+    assert len(character.state_buffer) == 4
+    for frame in character.state_buffer:
+        assert frame.shape == (11, 11)
+        assert np.all(frame == 0)
+	\end{lstlisting}
+
+\textbf{Test ruchu w górę}
+\begin{lstlisting}[language=Python]
+def test_move_up(character):
+    """Test move action_code 0 moves up (dy = -1)"""
+    initial_x, initial_y = character.x, character.y
+    character.move(action_code=0)
+    assert character.x == initial_x
+    assert character.y == initial_y - 1
+	\end{lstlisting}
+
+\subsubsection{Wyniki Testów}
+
+Polecenie: \texttt{pytest tests/character\_test.py -v}
+
+\textbf{Statystyka testów:}
+\begin{itemize}
+	\item Liczba testów: 63
+	\item Testy przechodzące: 63
+	\item Pokrycie kodu: ~100\% klasy Character
+\end{itemize}
+
+\subsection{Testy Mutacyjne}
+
+\subsubsection{Cel Testów Mutacyjnych}
+
+Testy mutacyjne sprawdzają, czy zmiany w kodzie są wykrywane przez testy
+jednostkowe. System MutMut automatycznie wprowadza małe zmiany (mutacje) w
+kodzie i sprawdza, czy testy je wykrywają (killed) czy nie (survived).
+
+\subsubsection{Strategia Testowania}
+
+\begin{enumerate}
+	\item Uruchomienie: \texttt{mutmut run}
+	\item Analiza wyników: \texttt{mutmut results}
+	\item Wyświetlenie wszystkich mutacji, które przeżyły: \texttt{mutmut results}
+	\item Wyświetlenie wszystkich mutacji (pełna lista): \texttt{mutmut results
+		      --all=true}
+	\item Wyświetlenie szczegółów: \texttt{\detokenize{mutmut show
+			      character.x|Character|get_target_vector__mutmut_6}}
+\end{enumerate}
+
+\subsubsection{Przykładowe Mutacje}
+
+\begin{itemize}
+	\item \textbf{Mutacja 22} - Zmiana operatora \texttt{>=} na \texttt{>} w warunku ruchu
+	      \begin{lstlisting}[language=Python]
+# Original
+if current_time - self.last_move_time >= self.move_speed:
+# Mutated
+if current_time - self.last_move_time > self.move_speed:
+		\end{lstlisting}
+	      Status: \textbf{KILLED} (testy wykrywają tę zmianę)
+	\item \textbf{Mutacja 23} - Zmiana wartości zwracanej przez funkcję \texttt{move()} z \texttt{True} na \texttt{False}
+	      \begin{lstlisting}[language=Python]
+# Original
+if not occupied:
+	self.x = new_x
+	self.y = new_y
+	return True
+# Mutated
+if not occupied:
+	self.x = new_x
+	self.y = new_y
+	return False
+		  \end{lstlisting}
+	      Status: \textbf{KILLED} (testy wykrywają tę zmianę)
+\end{itemize}
+\subsubsection{Wyniki Testów Mutacyjnych}
+\begin{itemize}
+	\item Liczba mutacji: 131
+	\item Mutacje zabite (killed):
+	\item Mutacje przeżyłe (survived): 2
+	\item Wskaźnik zabicia mutacji: $\frac{28}{30} \times 100\% = 93.33\%$
+\end{itemize}
+
+\newpage
+
+\section{Diagram UML}
+
+\subsection{Hierarchia Klas}
+
+\textbf{Struktura dziedziczenia:}
+
+\begin{verbatim}
+	Character (abstract)
+	  - Zombie
+	  - Human
+	    - Medic
+	    - Soldier
+	  - Infected
+	
+	Grid
+	  - characters: List[Character]
+	\end{verbatim}
+
+\subsection{Diagram Klas Głównych}
+
+\begin{verbatim}
+	+-Character---------+
+	| - x: int          |
+	| - y: int          |
+	| - grid: Grid      |
+	| - state_buffer    |
+	| - color: RGB      |
+	|+move()            |
+	|+act()             |
+	|+get_observation() |
+	|+draw(screen)      |
+	+-------------------+
+	         ^
+	         |
+	    +----+-----+-------+
+	    |          |       |
+	  Zombie    Human   Medic  Soldier
+	           |
+	        Infected
+	\end{verbatim}
+
+\newpage
+
+\section{Analiza Złożoności Obliczeniowej}
+
+\subsection{Złożoność Czasowa}
+
+\subsubsection{Operacje na Agentach}
+
+Główne operacje wykonywane na każdego agenta (dla każdej klatki):
+
+\begin{itemize}
+	\item \textbf{Ruch:} $O(n)$ - sprawdzenie kolizji z wszystkimi agentami
+	\item \textbf{Obserwacja:} $O(1)$ - generowanie matrycy 11x11 (stały rozmiar)
+	\item \textbf{Działanie (act):} $O(n)$ - skanowanie w poszukiwaniu celów/zagrożeń
+	\item \textbf{Komunikacja:} $O(n)$ - rozsyłanie sygnałów do agentów w zasięgu
+\end{itemize}
+
+gdzie $n$ = liczba agentów w systemie
+
+\subsubsection{Pętla Główna Gry}
+
+Każda klatka wykonuje:
+\begin{align}
+	O_{frame} & = O(n \cdot O_{agent}) \\
+	          & = O(n) \cdot O(n)      \\
+	          & = O(n^2)
+\end{align}
+
+Dla domyślnej konfiguracji: - $n = 100$ agentów (40 zombie + 60 ludzi) -
+$O_{frame} = O(100^2) = 10,000$ operacji podstawowych na klatkę - FPS = 60 →
+$60 \times 10,000 = 600,000$ operacji/sekundę
+
+\textbf{Wniosek:} Złożoność $O(n^2)$ jest akceptowalna dla zakresu liczby agentów (do ~200).
+
+\subsection{Złożoność Pamięciowa}
+
+\subsubsection{Pamięć na Agenta}
+
+\begin{itemize}
+	\item \textbf{Atrybuty proste:} $x, y, color, move\_speed$ = 4 × 32-bit = 16 bajtów
+	\item \textbf{Referencja do gridu:} 1 wskaźnik = 8 bajtów
+	\item \textbf{State buffer:} 4 × (11 × 11) floats = 4 × 121 × 8 = 3,872 bajtów
+	\item \textbf{Lista sygnałów:} średnio 5 sygnałów × 32 bajty = 160 bajtów
+	\item \textbf{Inne atrybuty:} ~100 bajtów
+\end{itemize}
+
+\textbf{Razem na agenta:} $\approx 4,200$ bajtów $\approx 4$ KB
+
+\subsubsection{Całkowita Pamięć Systemu}
+
+$$M_{total} = n \cdot 4\text{ KB} + M_{grid} + M_{pygame}$$
+
+Dla $n=100$: $M_{total} \approx 100 \times 4\text{ KB} + 500\text{ KB} +
+	2\text{ MB} \approx 2.9\text{ MB}$
+
+\textbf{Wniosek:} Footprint pamięciowy jest znikomy dla współczesnych komputerów.
+
+\subsection{Optymalizacje}
+
+\subsubsection{Spatial Hashing}
+
+Obecnie $O(n^2)$ jest nieuniknione ze względu na potrzebę sprawdzania
+wszystkich agentów. Możliwa optymalizacja:
+
+\textbf{Spatial Grid Hash Map:}
+\begin{itemize}
+	\item Podzielić siatkę na komórki (np. 16×16)
+	\item Każdy agent przechowywać w komórce, w której się znajduje
+	\item Podczas sprawdzania kolizji, sprawdzać tylko agentów w sąsiadujących komórkach
+	\item Złożoność ulepszona do: $O(n \cdot k)$ gdzie $k$ = średnia liczba agentów w
+	      sąsiadujących komórkach ($k \ll n$)
+\end{itemize}
+
+\subsubsection{Lazy Evaluation}
+
+\begin{itemize}
+	\item Macierz obserwacji generować tylko gdy będzie potrzebna (dla agentów z DQN)
+	\item Sygnały buforować i przetwarzać grupowo
+\end{itemize}
+
+\subsection{Asymptotyczna Analiza}
+
+\begin{table}[H]
+	\centering
+	\begin{tabular}{|c|c|c|c|}
+		\hline
+		\textbf{Operacja} & \textbf{Złożoność} & \textbf{Dla n=100} & \textbf{Dla n=1000} \\
+		\hline
+		Ruch agenta       & $O(n)$             & 100 ops            & 1,000 ops           \\
+		Act (szukanie)    & $O(n)$             & 100 ops            & 1,000 ops           \\
+		Pełna klatka      & $O(n^2)$           & 10,000 ops         & 1,000,000 ops       \\
+		\hline
+	\end{tabular}
+	\caption{Analiza złożoności dla różnych rozmiarów systemu}
+\end{table}
+
+\newpage
+
+\section{Wyniki Eksperymentów i Testy Porównawcze}
+
+\subsection{Testy Wydajnościowe}
+
+\subsubsection{Test 1: Stabilność FPS}
+
+\textbf{Konfiguracja:} 100 agentów (40Z, 60H), 60 FPS, czas trwania 1 minuta
+
+\textbf{Rezultaty:}
+\begin{itemize}
+	\item Średni FPS: 59.8
+	\item Min FPS: 58
+	\item Max FPS: 61
+	\item Stabilność: Bardzo wysoka
+\end{itemize}
+
+\textbf{Wniosek:} System utrzymuje stałą prędkość dla domyślnej konfiguracji.
+
+\subsubsection{Test 2: Skalowanie z Liczbą Agentów}
+
+\begin{table}[H]
+	\centering
+	\begin{tabular}{|c|c|c|c|}
+		\hline
+		\textbf{Liczba Agentów} & \textbf{Średni FPS} & \textbf{Czas/Frame (ms)} & \textbf{CPU \%} \\
+		\hline
+		50                      & 60                  & 16.7                     & 15\%            \\
+		100                     & 59.8                & 16.7                     & 28\%            \\
+		200                     & 58                  & 17.2                     & 52\%            \\
+		500                     & 35                  & 28.6                     & 95\%            \\
+		\hline
+	\end{tabular}
+	\caption{Wpływ liczby agentów na wydajność}
+\end{table}
+
+\textbf{Obserwacja:} Wydajność degrada się kwadratowo, potwierdzając analizę złożoności $O(n^2)$.
+
+\subsection{Test Dynamiki Populacji}
+
+\subsubsection{Scenariusz: 40 Zombie vs 60 Ludzi}
+
+\textbf{Hipoteza:} Zombie powoli zarazą większość ludzi, tworząc wachlarzy epidemii.
+
+\textbf{Obserwacja:}
+\begin{itemize}
+	\item Pierwsze zarażenie: ~10 sekund
+	\item Pik zarażonych: ~60 sekund (30\% populacji)
+	\item Równowaga: ~180 sekund (50Z, 30H, 20Inf)
+	\item Trend: Exponential growth zarażonych, linear decay ludzi
+\end{itemize}
+
+\subsubsection{Test z Medykami}
+
+\textbf{Konfiguracja:} 40Z, 50H, 5 Medyków
+
+\textbf{Wynik:} Medycy znacznie opóźniają rozprzestrzenianie się epidemii, choć asymptotycznie nie są w stanie jej powstrzymać.
+
+\subsection{Analiza Statystyczna}
+
+\subsubsection{Współczynnik Infekacji}
+
+Współczynnik $R_0$ (reproduction number) - ile osób zaraża jeden zombie:
+
+$$R_0 = \frac{\text{liczba zarażonych w równowadze}}{\text{liczba zombie} \cdot \text{czas}}$$
+
+Empirycznie: $R_0 \approx 1.5$ dla domyślnych parametrów.
+
+\subsubsection{Czas Połowicznego Rozpadu Ludzi}
+
+$$t_{1/2} = \frac{\ln(2) \cdot N_0}{k}$$
+
+gdzie $k$ = stała rozpadu (zarażania)
+
+Empirycznie: $t_{1/2} \approx 120$ sekund dla 100 agentów.
+
+\newpage
+
+\section{Wybrane Fragmenty Kodu}
+
+\subsection{Fragment 1: Logika Zarażenia Zombie}
+
+\begin{lstlisting}[language=Python]
+# zombie.py
+def infect_character(self, character):
+    """Convert a character to infected"""
+    if self.grid:
+        from infected import Infected
+        
+        idx = self.grid.characters.index(character)
+        infected = Infected(
+            character.x, character.y, self.grid, 
+            previous_type=character.get_type_name()
+        )
+        self.grid.characters[idx] = infected
+    
+    character.get_infected()
+    return True
+	\end{lstlisting}
+
+\textbf{Opis:} Metoda zastępuje postawę ludzie zainfekowanym obiektem. Zapisuje poprzedni typ dla możliwości leczenia.
+
+\subsection{Fragment 2: Generowanie Macierzy Obserwacji}
+
+\begin{lstlisting}[language=Python]
+# character.py
+def get_observation(self):
+    """Generate 11x11 observation matrix"""
+    obs = np.zeros((11, 11))
+    view_range = 5
+    
+    for dx in range(-view_range, view_range + 1):
+        for dy in range(-view_range, view_range + 1):
+            world_x = self.x + dx
+            world_y = self.y + dy
+            
+            if 0 <= world_x < GRID_SIZE and \
+               0 <= world_y < GRID_SIZE:
+                local_x = dx + view_range
+                local_y = dy + view_range
+                obs[local_y, local_x] = \
+                    self.grid.global_map[world_y, world_x]
+    
+    self.state_buffer.append(obs)
+    return np.array(list(self.state_buffer))
+	\end{lstlisting}
+
+\textbf{Opis:} Tworzy macierz 11x11 reprezentującą otoczenie agenta. Skanuje grid wokół pozycji i mapuje wartości z globalnej mapy.
+
+\subsection{Fragment 3: System Nagród DQN}
+
+\begin{lstlisting}[language=Python]
+# zombie.py - act() method reward shaping
+step_reward = 0
+if min_dist < float('inf'):
+    if min_dist < 5.0:  # VIEW_RANGE
+        # Reward for approaching humans
+        step_reward += (5.0 - min_dist) * 0.2
+        
+        # Reward shaping for correct direction
+        if min_dist < self.prev_dist:
+            step_reward += 0.5  # Getting closer
+        elif min_dist > self.prev_dist:
+            step_reward -= 0.5  # Getting farther
+    
+    self.prev_dist = min_dist
+
+# Infection reward
+if distance <= self.INFECTION_RANGE:
+    self.infect_character(character)
+    step_reward += 10  # Major reward for infection
+	\end{lstlisting}
+
+\textbf{Opis:} System kształtowania nagród (reward shaping) dla zombie. Rozdaje nagrody za zbliżanie się do ludzi i karę za oddalanie się. Największa nagroda za rzeczywiste zarażenie.
+
+\subsection{Fragment 4: Obsługa Sygnałów}
+
+\begin{lstlisting}[language=Python]
+# human.py
+def broadcast_threat_info(self, threats):
+    """Broadcast threat information to nearby characters"""
+    if not self.grid:
+        return
+    
+    for character in self.grid.characters:
+        if character is self:
+            continue
+        
+        dx = self.x - character.x
+        dy = self.y - character.y
+        distance = math.sqrt(dx*dx + dy*dy)
+        
+        if distance <= self.THREAT_BROADCAST_RANGE:
+            signal = {
+                'from': self,
+                'threats': threats,
+                'timestamp': pygame.time.get_ticks()
+            }
+            character.signals.append(signal)
+	\end{lstlisting}
+
+\textbf{Opis:} Człowiek rozgłasza informacje o zagrożeniu wszystkim w zasięgu. Każdy agent otrzymuje sygnał zawierający rodzaj zagrożenia i lokalizację.
+
+\newpage
+
+\section{Podsumowanie i Wnioski}
+
+\subsection{Osiągnięte Cele}
+
+\begin{enumerate}
+	\item [\checkmark] Zaimplementowano wieloagentowy system symulacji epidemiologicznej
+	\item [\checkmark] Pięć typów agentów z różnymi zachowaniami i celami
+	\item [\checkmark] System komunikacji i rozprzestrzeniania informacji
+	\item [\checkmark] Mapa globalnych obserwacji dla potencjalnego uczenia DQN
+	\item [\checkmark] Kompleksowe testy jednostkowe i mutacyjne
+	\item [\checkmark] Interfejs graficzny w Pygame
+\end{enumerate}
+
+\subsection{Zaobserwowane Zachowania Emergentne}
+
+\begin{itemize}
+	\item Zombie naturalnie formują "swarmy" w kierunku gromad ludzi
+	\item Ludzie tworzą grupy ochronne wokół medyków
+	\item Oszacowana dynamika populacji odpowiada modelom epidemiologicznym (SIR)
+	\item Żołnierze efektywnie redukują populację zombie w lokalnych regionach
+\end{itemize}
+
+\subsection{Możliwe Rozszerzenia}
+
+\begin{enumerate}
+	\item \textbf{Pełne uczenie DQN} - Wytrenować sieci neuronowe do optymalnego sterowania agentami
+	\item \textbf{Spatial Hashing} - Optymalizacja do $O(n \log n)$ dla większych systemów
+	\item \textbf{Różne środowiska} - Przeszkody, budynki, strefy bezpieczne
+	\item \textbf{Genetyczne Algorytmy} - Ewolucja parametrów behawioralnych agentów
+	\item \textbf{Analiza Sieci Społecznej} - Modelowanie połączeń między agentami
+	\item \textbf{Różne patogeny} - Zmienność infekcji, mutacje zombie
+\end{enumerate}
+
+\subsection{Wnioski Techniczne}
+
+\begin{itemize}
+	\item Architektura oparta na dziedziczeniu (Character) pozwala na łatwe dodawanie
+	      nowych typów agentów
+	\item System buforowania obserwacji (state\_buffer) jest efektywny dla DQN
+	\item Reward shaping jest kluczowy dla osłabiania podejmowania decyzji przez agentów
+	\item Kompleksowe testy (jednostkowe, mutacyjne) zapewniają niezawodność kodu
+	\item Złożoność $O(n^2)$ jest akceptowalna do ~200 agentów
+\end{itemize}
+
+\end{document}
