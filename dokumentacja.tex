@@ -135,7 +135,7 @@ Symulacja zostaje zainicjalizowana z domyślnymi parametrami:
 	\item Rozmiar siatki: 256x256 komórek
 	\item Rozdzielczość wyświetlania: 4 piksele na komórkę
 	\item Częstotliwość aktualizacji: 100ms między kolejnymi ruchami agentów
-	\item Liczba postaci początkowych: 40 zombie, 60 ludzi, 0 zarażonych, 0 medyków, 0
+	\item Liczba postaci początkowych: 40 zombie, 60 ludzi, 0 zarażonych, 20 medyków, 20
 	      żołnierzy
 \end{itemize}
 
@@ -153,6 +153,8 @@ Każda postać ma przypisane:
 \begin{enumerate}
 	\item Zainstalować zależności: \texttt{pip install -r requirements.txt}
 	\item Uruchomić program: \texttt{python main.py}
+	\item Program automatycznie inicjalizuje agentów DQN i tworzy siatkę z 40 zombie, 60
+	      ludźmi, 20 medykami i 20 żołnierzami
 	\item Zamknąć okno aplikacji, aby zakończyć symulację
 \end{enumerate}
 
@@ -381,8 +383,9 @@ Projekt jest podzielony na moduły funkcjonalne:
 	\item \textbf{soldier.py} - Implementacja żołnierzy (agenci walczący)
 	\item \textbf{grid.py} - Menedżer siatki i wszystkich agentów
 	\item \textbf{constants.py} - Stałe konfiguracyjne systemu
-	\item \textbf{main.py} - Główna pętla gry
-	\item \textbf{DQN/} - Moduł Deep Q-Network do uczenia agentów
+	\item \textbf{main.py} - Główna pętla gry z inicjalizacją agentów DQN
+	\item \textbf{DQN/learn.py} - Implementacja agentów DQN
+	\item \textbf{DQN/q\_network.py} - Definicja sieci neuronowej Q-Network
 \end{itemize}
 
 \subsection{Klasa Bazowa Character}
@@ -570,13 +573,17 @@ Zwraca liczbę każdego typu postaci.
 \begin{lstlisting}[language=Python]
 def main():
     """Main game loop"""
-    screen = pygame.display.set_mode((WINDOW_SIZE, WINDOW_SIZE))
+    print("Initializing simulation...")
+    screen = pygame.display.set_mode((WINDOW_SIZE, WINDOW_SIZE+ 40))
     pygame.display.set_caption("Zombie Outbreak Simulation")
     clock = pygame.time.Clock()
     
-    grid = Grid(num_zombies=40, num_humans=60, 
-                num_infected=0, num_medics=0, 
-                num_soldiers=0)
+    # Initialize DQN agents
+    zombie_agent = DQNAgent(input_shape=(4, 11, 11))
+    human_agent = DQNAgent(input_shape=(4, 11, 11), vector_size=4)
+    soldier_agent = DQNAgent(input_shape=(4, 11, 11), vector_size=3)
+    
+    grid = Grid(num_zombies=40, num_humans=60, num_infected=0, num_medics=20, num_soldiers=20)
     font = pygame.font.Font(None, 24)
     
     running = True
