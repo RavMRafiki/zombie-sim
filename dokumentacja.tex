@@ -86,15 +86,14 @@
 
 \begin{document}
 
-\title{Symulacja wybuchu epidemii zombie\\\small{Dokumentacja projektu systemu wieloagentowego}}
-\author{Rafal}
+\title{Symulacja wybuchu epidemii zombie\\\small{Dokumentacja projektu systemu wieloagentowego z Q-learningiem}}
+\author{Rafał Maciończyk, Patryk Buchtyar}
 \date{\today}
 
 \maketitle
 \tableofcontents
 \newpage
 
-% ========== CZĘŚĆ I: OPIS SYSTEMU ==========
 \section{Model Systemu Informatycznego}
 
 \subsection{Definicja Modelu}
@@ -205,9 +204,6 @@ postaci w formacie: \texttt{Zombies: X | Humans: Y | Infected: Z | Medics: A |
 % \end{itemize}
 
 \newpage
-% ========== CZĘŚĆ II: MODEL MATEMATYCZNY I ALGORYTMY ==========
-\section*{Część II: Model Matematyczny i Algorytmy}
-
 \subsection{Model Matematyczny Systemu}
 
 System symulacyjny oparty jest na modelu wieloagentowym (MAS), w którym agenci
@@ -636,6 +632,7 @@ Projekt jest podzielony na moduły funkcjonalne:
 	\item \textbf{human.py} - Implementacja ludzi (agenci defensywni)
 	\item \textbf{infected.py} - Implementacja zarażonych (stan przejściowy)
 	\item \textbf{medic.py} - Implementacja medyków (agenci leczący)
+	\item \textbf{pathfinding.py} - Moduł algorytmu ścieżkowania A*
 	\item \textbf{soldier.py} - Implementacja żołnierzy (agenci walczący)
 	\item \textbf{grid.py} - Menedżer siatki i wszystkich agentów
 	\item \textbf{constants.py} - Stałe konfiguracyjne systemu
