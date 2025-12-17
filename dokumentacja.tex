@@ -741,25 +741,151 @@ if not occupied:
 \subsection{Diagram Klas Głównych}
 
 \begin{verbatim}
-	+-Character---------+
-	| - x: int          |
-	| - y: int          |
-	| - grid: Grid      |
-	| - state_buffer    |
-	| - color: RGB      |
-	|+move()            |
-	|+act()             |
-	|+get_observation() |
-	|+draw(screen)      |
-	+-------------------+
-	         ^
-	         |
-	    +----+-----+-------+
-	    |          |       |
-	  Zombie    Human   Medic  Soldier
-	           |
-	        Infected
-	\end{verbatim}
+	+------------------------------------------+
+	|      Character (abstract)                |
+	+------------------------------------------+
+	| Attributes:                              |
+	|  - x: int                                |
+	|  - y: int                                |
+	|  - grid: Grid                            |
+	|  - is_alive: bool                        |
+	|  - state_buffer: deque[np.array]         |
+	|  - signals: list                         |
+	|  - char_type_name: str                   |
+	|  - color: (r,g,b)                        |
+	|  - move_speed: int                       |
+	+------------------------------------------+
+	| Methods:                                 |
+	|  + __init__(x, y, grid)                  |
+	|  + update(current_time): void            |
+	|  + move(action_code): bool               |
+	|  + act(): void                           |
+	|  + process_signals(): void               |
+	|  + send_signal(type, range, data)        |
+	|  + receive_signal(type, data): void      |
+	|  + draw(screen, offset_y): void          |
+	|  + get_type_name(): str                  |
+	|  + get_surrounding_characters(r): list   |
+	|  + get_observation(matrix): np.array     |
+	|  + get_target_vector(): np.array         |
+	+------------------------------------------+
+\end{verbatim}
+\begin{verbatim}
+
+	+------------------------------------+
+	|           Zombie                   |
+	+------------------------------------+
+	| Attributes:                        |
+	|  - INFECTION_RANGE: float          |
+	|  - INFECTION_COOLDOWN: int         |
+	|  - SIGHT_RANGE: float              |
+	|  - SIEGE_RANGE: float              |
+	|  - BROADCAST_RANGE: float          |
+	|  - last_infection_time: int        |
+	|  - prev_dist: float                |
+	+------------------------------------+
+	| Methods:                           |
+	|  + __init__(x, y, grid)            |
+	|  + get_target_vector(): list       |
+	|  + act(): void                     |
+	|  + broadcast_prey_spotted(pos)     |
+	|  + infect_character(char): bool    |
+	+------------------------------------+
+\end{verbatim}
+\begin{verbatim}
+	+------------------------------------+
+	|           Human                    |
+	+------------------------------------+
+	| Attributes:                        |
+	|  - THREAT_DETECTION_RANGE: float   |
+	|  - THREAT_BROADCAST_RANGE: float   |
+	|  - prev_min_dist: float            |
+	+------------------------------------+
+	| Methods:                           |
+	|  + __init__(x, y, grid)            |
+	|  + get_target_vector(): list       |
+	|  + act(): void                     |
+	|  + broadcast_threat_info(threats)  |
+	|  + get_infected(): void            |
+	|  + broadcast_help_request(): void  |
+	+------------------------------------+
+\end{verbatim}
+\begin{verbatim}
+	+------------------------------------+
+	|           Medic                    |
+	+------------------------------------+
+	| Attributes:                        |
+	|  - SEARCH_RANGE: float             |
+	|  - HEALING_RANGE: float            |
+	|  - HEALING_COOLDOWN: int           |
+	|  - HEAR_RANGE: float               |
+	|  - target: Character               |
+	|  - last_heal_time: int             |
+	+------------------------------------+
+	| Methods:                           |
+	|  + __init__(x, y, grid)            |
+	|  + get_autonomous_action(): int    |
+	|  + find_best_target(): Character   |
+	|  + broadcast_intent(): void        |
+	|  + check_competition(): bool       |
+	|  + act(): void                     |
+	|  + heal_target(): bool             |
+	|  + broadcast_heal(char, type)      |
+	|  + get_infected(): void            |
+	+------------------------------------+
+\end{verbatim}
+\begin{verbatim}
+	+------------------------------------+
+	|           Soldier                  |
+	+------------------------------------+
+	| Attributes:                        |
+	|  - SIGHT_RANGE: float              |
+	|  - ATTACK_RANGE: float             |
+	|  - ATTACK_COOLDOWN: int            |
+	|  - KILL_REWARD: float              |
+	|  - BROADCAST_RANGE: float          |
+	|  - last_attack_time: int           |
+	+------------------------------------+
+	| Methods:                           |
+	|  + __init__(x, y, grid)            |
+	|  + get_target_vector(): list       |
+	|  + act(): void                     |
+	|  + broadcast_kill(pos): void       |
+	|  + get_infected(): void            |
+	+------------------------------------+
+\end{verbatim}
+\begin{verbatim}
+	+------------------------------------+
+	|           Infected                 |
+	+------------------------------------+
+	| Attributes:                        |
+	|  - infection_start_time: int       |
+	|  - INFECTION_DURATION: int         |
+	|  - previous_type: str              |
+	|  - transform_time: int             |
+	+------------------------------------+
+	| Methods:                           |
+	|  + __init__(x, y, grid, prev_type) |
+	|  + act(): void                     |
+	|  + broadcast_infected_status()     |
+	|  + transform_to_zombie(): void     |
+	+------------------------------------+
+\end{verbatim}
+\begin{verbatim}
+	+------------------------------------+
+	|            Grid                    |
+	+------------------------------------+
+	| Attributes:                        |
+	|  - characters: List[Character]     |
+	+------------------------------------+
+	| Methods:                           |
+	|  + __init__(num_z, num_h, ...)     |
+	|  + update(): void                  |
+	|  + draw(screen, offset_y): void    |
+	|  + get_stats(): tuple              |
+	|  + get_global_map_matrix(): array  |
+	+------------------------------------+
+\end{verbatim}
 
 \newpage
 
