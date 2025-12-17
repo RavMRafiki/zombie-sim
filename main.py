@@ -121,12 +121,12 @@ def update_game_logic(grid, global_map):
             reward += char.act() # Tu wróci +10 jeśli zaraził
             reward -= 0.05 # Kara za czas (pogania zombie)
         elif isinstance(char, Soldier):
-            reward += char.act() # Tu wróci +1 za przeżycie i +10 za zabicie
+            reward += char.act() # Tu wróci +0.5 za przeżycie i +10 za zabicie
             if not char.is_alive:
                 reward = -10
                 done = True
         elif isinstance(char, Human):
-            reward += char.act() # Tu wróci +1 za przeżycie
+            reward += char.act() # Tu wróci +0.1 za przeżycie
             if not char.is_alive: # Ustalone w get_infected()
                 reward = -10
                 done = True

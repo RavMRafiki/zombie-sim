@@ -98,7 +98,7 @@
 
 \subsection{Definicja Modelu}
 System ``Zombie Outbreak Simulation'' jest symulacją wieloagentową opracowywaną
-w środowisku gry 2D. Model systemu stanowi szachownica o wymiarach 256x256
+w środowisku gry 2D. Model systemu stanowi szachownica o wymiarach 128x128
 komórek, na której poruszają się pięć typów autonomicznych agentów
 posiadających różne cele i zachowania. Każdy agent podejmuje decyzje w oparciu
 o obserwacje otoczenia i stanu wewnętrznego, stanowiąc część zamodelowanego
@@ -163,7 +163,7 @@ Każda postać ma przypisane:
 	\item \textbf{Zielony} - Zombie (agressywne, zarażają ludzi)
 	\item \textbf{Niebieski} - Ludzie (defensywni, rozglaszają ostrzeżenia)
 	\item \textbf{Pomarańczowy} - Zarażeni (przejściowy stan przed zmianą w zombie)
-	\item \textbf{Czerwony} - Medycy (leczą zarażonych, przywracając ich do poprzedniego stanu)
+	\item \textbf{Biały} - Medycy (leczą zarażonych, przywracając ich do poprzedniego stanu)
 	\item \textbf{Żółty} - Żołnierze (eliminują zombie w bliskiej okolicy)
 \end{itemize}
 
@@ -200,173 +200,326 @@ postaci w formacie: \texttt{Zombies: X | Humans: Y | Infected: Z | Medics: A |
 \end{itemize}
 
 \newpage
-
 % ========== CZĘŚĆ II: MODEL MATEMATYCZNY I ALGORYTMY ==========
 \section*{Część II: Model Matematyczny i Algorytmy}
 
 \subsection{Model Matematyczny Systemu}
 
-\subsubsection{Reprezentacja Stanu}
-Stan systemu w chwili czasu $t$ opisany jest jako: $$S(t) = \{A_1(t), A_2(t),
-	\ldots, A_n(t)\}$$ gdzie $A_i(t) = (x_i(t), y_i(t), type_i, state_i(t))$
-reprezentuje $i$-tego agenta z pozycją $(x_i, y_i) \in \{0, \ldots, 255\}^2$,
-typem i stanem wewnętrznym.
+System symulacyjny oparty jest na modelu wieloagentowym (MAS), w którym agenci
+poruszają się po dyskretnej siatce dwuwymiarowej. Decyzje agentów sterowane są
+przez algorytm \textit{Deep Q-Network} (DQN), który aproksymuje funkcję
+wartości $Q(s, a)$.
 
-\subsubsection{Model Obserwacji Agenta}
-Każdy agent obserwuje lokalne otoczenie poprzez macierz obserwacji $O_i(t) \in
-	\mathbb{R}^{4 \times 11 \times 11}$, gdzie:
-\begin{itemize}
-	\item 4 kanały reprezentują ostatnie 4 ramki czasowe (historia ruchu)
-	\item 11x11 reprezentuje pole widzenia agenta (9 komórek w każdą stronę + agenta w centrum)
-	\item Wartości: -1.0 dla wrogów (zombie/zarażeni), 0.5 dla sojuszników
-	      (ludzie/medycy/żołnierze), 0 dla pustej przestrzeni
-\end{itemize}
+\subsubsection{Przestrzeń Obserwacji (Wejście Sieci)}
 
-\subsubsection{Dynamika Ruchu}
-Ruch każdego agenta jest dyskretny, możliwe akcje: $a \in \{0,1,2,3,4\}$ $$\begin{cases}
-		(dx, dy) = (0, -1) & \text{jeśli } a = 0 \text{ (góra)}   \\
-		(dx, dy) = (0, 1)  & \text{jeśli } a = 1 \text{ (dół)}    \\
-		(dx, dy) = (-1, 0) & \text{jeśli } a = 2 \text{ (lewo)}   \\
-		(dx, dy) = (1, 0)  & \text{jeśli } a = 3 \text{ (prawo)}  \\
-		(dx, dy) = (0, 0)  & \text{jeśli } a = 4 \text{ (czekaj)}
-	\end{cases}$$
+Dla każdego agenta uczącego się, stan $s_t$ składa się z dwóch heterogenicznych
+komponentów, które są przetwarzane równolegle:
 
-Nowa pozycja obliczana jest jako: $$x'_i = \text{clip}(x_i + dx, 0, 255), \quad
-	y'_i = \text{clip}(y_i + dy, 0, 255)$$
-
-Ruch jest wykonywany tylko gdy nowa pozycja nie jest zajęta przez innego
-agenta.
-
-\subsubsection{Model Zarażenia}
-Zombie mogą zarazić ludzi, jeśli dystans euklidesowy jest mniejszy niż próg:
-$$d_{infection} = \sqrt{(x_z - x_h)^2 + (y_z - y_h)^2} \leq 1.99$$
-
-Zarażenie może nastąpić maksymalnie co 5 sekund (INFECTION\_COOLDOWN = 5000ms):
-$$t_{infection}(k+1) \geq t_{infection}(k) + 5000$$
-
-\subsubsection{Model Leczenia}
-Medycy leczą zarażonych przywracając ich do poprzedniego stanu, jeśli dystans
-jest mniejszy niż 1.5: $$d_{healing} = \sqrt{(x_m - x_{inf})^2 + (y_m -
-		y_{inf})^2} \leq 1.5$$
-
-\subsubsection{Model Walki}
-Żołnierze eliminują zombie w zasięgu walki:
-$$d_{combat} = \sqrt{(x_s - x_z)^2 + (y_s - y_z)^2} \leq 2.0$$
-
-Akcja walki ma cooldown 2 sekund (SOLDIER\_ATTACK\_COOLDOWN = 2000ms).
-
-\subsubsection{Model Rozprzestrzeniania Informacji}
-Ludzie mogą przekazywać informacje o zagrożeniu innym postaciom w promieniu:
-$$r_{broadcast} = 7.0 \text{ (komórki)}$$
-
-Informacja zawiera typ zagrożenia (zombie/zarażeni), pozycję i dystans.
-
-\subsection{Funkcja Nagrody (Reward Shaping)}
-
-\subsubsection{Zombie}
-Zombie otrzymują nagrodę za zbliżanie się do i zarażanie ludzi: $$r_z(t) = \begin{cases}
-		10.0                              & \text{jeśli zaraziło człowieka}                              \\
-		0.2 \cdot (VIEW\_RANGE - d_{min}) & \text{jeśli } d_{min} < VIEW\_RANGE \text{ (5.0)}            \\
-		0.5                               & \text{jeśli } d_{min}(t) < d_{min}(t-1) \text{ (zbliża się)} \\
-		-0.5                              & \text{jeśli } d_{min}(t) > d_{min}(t-1) \text{ (oddala się)} \\
-	\end{cases}$$
-
-\subsubsection{Ludzie}
-Ludzie otrzymują nagrodę za ucieczkę i karę za posiadanie zombie w pobliżu:
-$$r_h(t) = \begin{cases}
-		0.1                                   & \text{jeśli żyje}                                                    \\
-		-0.2 \cdot (SAFE\_DISTANCE - d_{min}) & \text{jeśli } d_{min} < SAFE\_DISTANCE \text{ (5.0)}                 \\
-		0.5                                   & \text{jeśli } d_{min}(t) > d_{min}(t-1) \text{ (ucieka)}             \\
-		-0.5                                  & \text{jeśli } d_{min}(t) < d_{min}(t-1) \text{ (przybyża do zombie)} \\
-	\end{cases}$$
-
-\subsection{Architektura Deep Q-Network}
-
-\subsubsection{Struktura Sieci}
-DQN przyjmuje obraz 4x11x11 jako wejście i zwraca Q-wartości dla każdej akcji
-(5 akcji): $$Q(s,a) \approx q_\theta(s)$$
-
-Architektura sieciowa:
 \begin{enumerate}
-	\item Warstwa konwolucyjna: 4 kanały wejścia $\rightarrow$ 16 filtrów (kernel 3x3)
-	\item Warstwa konwolucyjna: 16 kanałów $\rightarrow$ 32 filtry (kernel 3x3)
-	\item Warstwa spłaszczona (flatten)
-	\item Warstwa w pełni połączona (fully connected): 512 neuronów
-	\item Warstwa wyjściowa: 5 neuronów (dla 5 akcji)
-	\item Aktywacja: ReLU w warstwach ukrytych, liniowa w wyjściu
+	\item \textbf{Komponent Wizualny (Local Grid Map):}
+	      Agent obserwuje lokalne otoczenie w promieniu 5 kratek, co daje macierz o wymiarach $11 \times 11$. Aby zapewnić agentowi rozumienie dynamiki ruchu (kierunek i prędkość obiektów), wejście sieci składa się ze \textbf{stosu 4 kolejnych klatek} (Frame Stacking).
+	      \begin{equation}
+		      I_t \in \mathbb{R}^{4 \times 11 \times 11}
+	      \end{equation}
+	      Gdzie wymiar 4 odpowiada kanałom: $[t, t-1, t-2, t-3]$.
+
+	\item \textbf{Komponent Wektorowy (Sensor):}
+	      Dodatkowy wektor cech $V_t \in \mathbb{R}^N$, zawierający znormalizowane informacje kierunkowe (np. wektor do najbliższego wroga) oraz stan wewnętrzny (np. przeładowanie broni). Rozmiar $N$ zależy od typu agenta:
+	      \begin{itemize}
+		      \item \textbf{Zombie ($N=2$):} Wektor do najbliższej ofiary (wykrytej wizualnie lub poprzez sygnał roju \texttt{prey\_spotted}).
+		      \item \textbf{Soldier ($N=3$):} Wektor do najbliższego celu (wroga) oraz skalarna wartość gotowości broni ($\delta_{weapon} \in [0, 1]$).
+		      \item \textbf{Human ($N=4$):} Wektor złożony z dwóch składowych kierunkowych:
+		            \begin{equation}
+			            V_{human} = [\vec{v}_{threat}, \vec{v}_{rescue}]
+		            \end{equation}
+		            Gdzie:
+		            \begin{itemize}
+			            \item $\vec{v}_{threat} = [dx_t, dy_t]$: Wektor do najbliższego zagrożenia (zombie/infekcja).
+			            \item $\vec{v}_{rescue} = [dx_r, dy_r]$: \textbf{Wektor ratunku}, wskazujący na pozycję żołnierza, który nadał sygnał \texttt{zombies\_killed}. Cywil nie kieruje się do dowolnego żołnierza, lecz do tego, który aktywnie eliminuje zagrożenie, traktując jego pozycję jako bezpieczny azyl.
+		            \end{itemize}
+	      \end{itemize}
 \end{enumerate}
 
-\subsubsection{Algorytm Uczenia}
-Algorytm Deep Q-Learning z funkcją straty: $$L(\theta) =
-	\mathbb{E}_{(s,a,r,s')}[(r + \gamma \max_{a'} Q(s', a'; \theta^-) - Q(s, a;
-	\theta))^2]$$
+\subsubsection{Przestrzeń Akcji ($\mathcal{A}$)}
 
-gdzie:
+Przestrzeń akcji jest dyskretna i wynosi $|\mathcal{A}| = 5$:
+\begin{equation}
+	\mathcal{A} = \{0: \text{Góra}, 1: \text{Dół}, 2: \text{Lewo}, 3: \text{Prawo}, 4: \text{Czekaj}\}
+\end{equation}
+
+\subsection{Architektura Sieci Neuronowej (ZombieQNetwork)}
+
+Zastosowano hybrydową architekturę typu \textit{Dual-Stream}, która łączy
+przetwarzanie obrazu (CNN) z przetwarzaniem danych numerycznych (MLP). Sieć
+składa się z następujących bloków:
+
+\subsubsection{Gałąź Wizualna (CNN)}
+Przetwarza stos 4 klatek $11 \times 11$. Składa się z dwóch warstw
+konwolucyjnych z funkcją aktywacji ReLU:
+\begin{enumerate}
+	\item \textbf{Conv2D-1:} Wejście: 4 kanały, Wyjście: 32 filtry, Kernel: $3 \times 3$, Stride: 1, Padding: 1.
+	\item \textbf{Conv2D-2:} Wejście: 32 kanały, Wyjście: 64 filtry, Kernel: $3 \times 3$, Stride: 1, Padding: 1.
+	\item \textbf{Flatten:} Spłaszczenie mapy cech do wektora o rozmiarze $64 \times 11 \times 11 = 7744$.
+\end{enumerate}
+
+\subsubsection{Gałąź Wektorowa (MLP)}
+Przetwarza wektor sensorów $V_t$.
+\begin{enumerate}
+	\item \textbf{Linear:} Transformacja wektora $N$-elementowego do przestrzeni 32 cech.
+\end{enumerate}
+
+\subsubsection{Fuzja i Decyzja (Fully Connected)}
+Cechy wizualne i wektorowe są łączone (konkatenacja), tworząc wektor o wymiarze
+$7744 + 32 = 7776$. Następnie sygnał przechodzi przez warstwy gęste:
+\begin{enumerate}
+	\item \textbf{FC-1:} Warstwa ukryta, 512 neuronów, aktywacja ReLU.
+	\item \textbf{FC-2 (Output):} Warstwa wyjściowa, 5 neuronów (wartości Q dla każdej akcji).
+\end{enumerate}
+
+\subsection{Hiperparametry i Proces Uczenia}
+
+Agent uczy się metodą \textit{Experience Replay} z wykorzystaniem dwóch sieci
+(Policy Net i Target Net) w celu stabilizacji treningu.
+
+\begin{table}[H]
+	\centering
+	\caption{Hiperparametry algorytmu DQN}
+	\label{tab:dqn_params}
+	\begin{tabular}{|l|c|l|}
+		\hline
+		\textbf{Parametr}        & \textbf{Wartość} & \textbf{Opis}                              \\ \hline
+		Input Shape              & $(4, 11, 11)$    & Stos 4 klatek lokalnej mapy                \\ \hline
+		Batch Size               & 64               & Liczba próbek w jednym kroku uczenia       \\ \hline
+		Learning Rate ($\alpha$) & 0.001            & Współczynnik uczenia optymalizatora Adam   \\ \hline
+		Gamma ($\gamma$)         & 0.99             & Współczynnik dyskontowania nagród          \\ \hline
+		Replay Buffer            & 10,000           & Pojemność pamięci doświadczeń              \\ \hline
+		Target Update            & 1000 kroków      & Częstotliwość aktualizacji sieci docelowej \\ \hline
+		Epsilon Start            & 1.0              & Początkowa szansa na losowy ruch           \\ \hline
+		Epsilon Decay            & 0.995            & Mnożnik zmniejszający eksplorację          \\ \hline
+		Epsilon Min              & 0.05             & Minimalny poziom eksploracji               \\ \hline
+	\end{tabular}
+\end{table}
+
+\subsection{Kształtowanie Nagrody (Reward Shaping)}
+
+Funkcja nagrody $R(s, a, s')$ została zaprojektowana tak, aby promować
+specyficzne zachowania dla każdej klasy.
+
+\subsubsection{Zombie: Agresywna Inteligencja Roju (Swarm Intelligence)}
+
+Zombie działają w oparciu o logikę roju, wykorzystując zarówno wzrok, jak i
+komunikację radiową ("krzyk") do lokalizacji ofiar. Kluczowym elementem jest
+mechanizm \textit{Oblężenia} (Siege Logic), który eliminuje kary za bezczynność
+w tłumie, promując osaczanie ofiary.
+
+\paragraph{Funkcja Nagrody}
+Nagroda całkowita $R_{zombie}$ w kroku $t$ jest sumą składowych:
+\begin{equation}
+	R_{zombie}^{(t)} = R_{infect} + R_{siege} + R_{pursuit} + R_{env}
+\end{equation}
+
+Gdzie poszczególne składowe zdefiniowane są następująco:
 \begin{itemize}
-	\item $\gamma = 0.99$ - współczynnik dyskontowania
-	\item $\theta$ - wagi sieci głównej
-	\item $\theta^-$ - wagi sieci docelowej (aktualizowane co $C$ kroków)
-	\item Optimizator: Adam z $\alpha = 0.001$ (learning rate)
+	\item \textbf{Infekcja ($R_{infect}$):} Dyskretna nagroda za sukces ataku.
+	      $$ R_{infect} = \begin{cases} +10 & \text{jeśli ofiara została zarażona} \\ 0 & \text{w p.p.} \end{cases} $$
+
+	\item \textbf{Strefa Oblężenia ($R_{siege}$):} Promuje utrzymywanie pozycji w bezpośrednim sąsiedztwie ofiary ($d_t \le 2.5$), niwelując kary za brak ruchu.
+	      $$ R_{siege} = \begin{cases} +0.5 & \text{jeśli } d_t \le 2.5 \\ 0 & \text{w p.p.} \end{cases} $$
+
+	\item \textbf{Pościg ($R_{pursuit}$):} Nagroda za zbliżanie się do celu, aktywna tylko poza strefą oblężenia.
+	      $$ R_{pursuit} = \begin{cases}
+			      (8.0 - d_t) \cdot 0.2 & \text{jeśli } d_t < 8.0                     \\
+			      +0.5                  & \text{jeśli } d_t < d_{t-1} \land d_t > 2.5 \\
+			      -0.5                  & \text{jeśli } d_t > d_{t-1} \land d_t > 2.5 \\
+			      0                     & \text{w p.p.}
+		      \end{cases} $$
+
+	\item \textbf{Kary Środowiskowe ($R_{env}$):}
+	      $$ R_{env} = -0.1 (\text{kolizja}) - 0.05 (\text{czas}) + \begin{cases} 0 & \text{jeśli akcja=Wait} \land d_t \le 2.5 \\ -0.5 & \text{jeśli akcja=Wait} \land d_t > 2.5 \end{cases} $$
 \end{itemize}
 
-\subsection{Algorytmy Comportamentu Agentów}
-
-\subsubsection{Algorytm Zombie}
 \begin{algorithm}[H]
-	\KwData{Pozycja zombie $(x_z, y_z)$, grid z postaciami}
-	\KwResult{Brak (zmiana stanu w gridzie)}
+	\caption{Algorytm Zachowania Zombie (Act)}
+	\KwIn{Stan otoczenia, sygnały}
 
-	\If{cooldown infekcji upłynął}{
-		\For{każdy człowiek/medyk/żołnierz w gridzie}{
-			Oblicz dystans $d = \sqrt{(x_z - x)^2 + (y_z - y)^2}$\;
-			\If{$d \leq 1.99$}{
-				Zamień postać na zaraźoną\;
-				Ustaw cooldown infekcji na 5 sekund\;
-				break\;
-			}
+	$target \gets \text{None}, min\_dist \gets \infty$\;
+
+	\tcp{1. Percepcja (Wzrok i Słuch)}
+	\For{$char \in \text{VisibleCharacters}$}{
+		\If{$dist(me, char) < min\_dist$}{
+			$target \gets char$; $min\_dist \gets dist$\;
+			\textbf{Broadcast}("prey\_spotted", $char.pos$)\;
 		}
 	}
 
-	Oblicz minimalny dystans do najbliższego człowieka\; \If{$d_{min} < 5.0$}{
-		reward $\leftarrow$ reward $+ 0.2 \cdot (5.0 - d_{min})$\; }
+	\If{$target$ is None}{
+		$target \gets \text{SignalSource("prey\_spotted")}$\;
+	}
 
-	\caption{Zachowanie Zombie}
+	\tcp{2. Próba Infekcji}
+	\If{$min\_dist \le 1.99$ \textbf{and} $Cooldown == 0$}{
+		\textbf{Infect}($target$)\;
+		\Return $+10$\;
+	}
+
+	\tcp{3. Obliczenie Nagrody za Ruch}
+	\If{$min\_dist \le 2.5$}{
+		\tcp*[h]{Strefa Oblężenia}
+		\Return $+0.5 + R_{base\_prox}$\;
+	}
+	\Else{
+		\tcp*[h]{Strefa Pościgu}
+		$R_{dir} \gets (min\_dist < prev\_dist) ? +0.5 : -0.5$\;
+		\Return $R_{dir} + R_{base\_prox}$\;
+	}
 \end{algorithm}
 
-\subsubsection{Algorytm Człowieka}
-\begin{algorithm}[H]
-	\KwData{Pozycja człowieka $(x_h, y_h)$, grid z postaciami}
-	\KwResult{Rozsyłane ostrzeżenia}
+\subsubsection{Soldier: Reaktywna Obrona}
 
-	\For{każde zombie/zaraźone w gridzie}{
-		Oblicz dystans $d = \sqrt{(x_h - x)^2 + (y_h - y)^2}$\;
-		\If{$d \leq 3.0$}{
-			threats $\leftarrow$ threats $+$ zagrożenie\;
-		}
-	}
+Żołnierz jest jednostką bojową. Jego funkcja celu promuje eliminację zagrożeń oraz taktyczne poruszanie się.
 
-	\If{threats nie puste}{
-		\For{każda postać w promieniu 7.0}{
-			Wyślij informację o zagrożeniu\;
-		}
-	}
+\paragraph{Funkcja Nagrody}
+\begin{equation}
+	R_{soldier}^{(t)} = R_{kill} + R_{survival} + R_{tactical} + R_{death}
+\end{equation}
 
-	\caption{Zachowanie Człowieka}
-\end{algorithm}
-
-\subsection{Bezpieczeństwo i Odporność}
-
-System symulacji jest całkowicie offline - nie komunikuje się z siecią.
-Potencjalne zagrożenia wewnętrzne:
 \begin{itemize}
-	\item \textbf{Overflow bufora ruchu}: Każdy agent ma bufor rozmiaru 4, stały rozmiar zabezpieczony przez \texttt{deque(maxlen=4)}
-	\item \textbf{Buffer overflow pozycji}: Pozycje zawsze w zakresie $[0, 255]$ dzięki \texttt{clip()}
-	\item \textbf{Nieskończone pętle}: Wszystkie pętle mają skończoną liczbę iteracji (liczba agentów)
-	\item \textbf{Wyciek pamięci}: Obiekty agentów są automatycznie czyszczone przez garbage collector Pythona
+	\item $R_{kill} = +10.0$: Za skuteczną eliminację zombie.
+	\item $R_{survival} = +0.5$: Stała nagroda za każdą klatkę przeżycia.
+	\item $R_{death} = -10.0$: Kara terminalna za śmierć.
+	\item $R_{tactical}$: Kształtowanie zachowania zależne od stanu broni.
 \end{itemize}
 
-\newpage
-\newpage
+\begin{algorithm}[H]
+	\caption{Algorytm Zachowania Żołnierza}
+	\KwIn{Wzrok, Sygnały radiowe}
+
+	\tcp{1. Wybór Celu (Priorytety)}
+	\If{$\exists zombie \in SIGHT\_RANGE$}{
+		$target \gets \text{NearestVisibleZombie}$\;
+	}
+	\ElseIf{$\exists signal \in \text{threat\_alert}$}{
+		$target \gets \text{SignalSource}$\;
+	}
+	\tcp{2. Walka}
+	\If{$WeaponCooldown == 0$ \textbf{and} $dist(target) \le 3.0$}{
+		\textbf{Shoot}($target$)\;
+		\textbf{Broadcast}("zombies\_killed")\;
+		\Return $+10.0$\;
+	}
+
+	\tcp{3. Ocena Ruchu}
+	\Return $R_{survival} + R_{tactical}(dist\_delta, weapon\_status)$\;
+\end{algorithm}
+
+\subsubsection{Human: Instynkt Przetrwania i Ewhakuacja}
+
+Model cywila jest najbardziej złożony pod względem motywacji, balansując między
+panicznym strachem (ucieczka od zagrożenia) a nadzieją (dążenie do strefy, w
+której słychać strzały żołnierzy). Sieć neuronowa otrzymuje na wejściu
+hybrydowy wektor sterujący, łączący te dwie sprzeczne siły.
+
+\paragraph{Funkcja Nagrody}
+Całkowita nagroda $R_{human}^{(t)}$ jest sumą składowych promujących
+przetrwanie i karzących za ryzykowne zachowania:
+
+\begin{equation}
+	R_{human}^{(t)} = R_{survival} + R_{escape} + R_{panic} + R_{collision} + R_{death}
+\end{equation}
+
+Szczegółowa definicja składowych:
+
+\begin{itemize}
+	\item \textbf{Przetrwanie ($R_{survival}$):} Stała nagroda za każdą klatkę pozostania przy życiu.
+	      $$ R_{survival} = +0.1 $$
+
+	\item \textbf{Gradient Ucieczki ($R_{escape}$):} Nagroda dynamiczna, zależna od zmiany dystansu do najbliższego zagrożenia ($d_t$).
+	      $$ R_{escape} = \begin{cases}
+			      +0.5 & \text{jeśli } d_t > d_{t-1} \text{ (Skuteczna ucieczka)}       \\
+			      -0.5 & \text{jeśli } d_t < d_{t-1} \text{ (Bieg w stronę zagrożenia)} \\
+			      0    & \text{w p.p.}
+		      \end{cases} $$
+
+	\item \textbf{Kara Paniczna ($R_{panic}$):} Funkcja aktywująca się po przekroczeniu progu bezpieczeństwa $D_{safe} = 5.0$. Kara rośnie liniowo wraz ze zbliżaniem się do zombie.
+	      $$ R_{panic} = -\max(0, (5.0 - d_t) \cdot 0.2) $$
+
+	\item \textbf{Kary Środowiskowe ($R_{collision}$):} Penalizacja za uderzenie w przeszkodę (ścianę), co zapobiega blokowaniu się agenta w rogach mapy.
+	      $$ R_{collision} = \begin{cases} -0.5 & \text{w przypadku kolizji} \\ 0 & \text{w p.p.} \end{cases} $$
+
+	\item \textbf{Śmierć ($R_{death}$):} Terminalna kara za zostanie zarażonym.
+	      $$ R_{death} = -10.0 $$
+\end{itemize}
+
+\begin{algorithm}[H]
+	\SetAlgoLined
+	\KwData{Pozycja własna, Grid, Sygnały radiowe, $d_{prev}$}
+	\KwResult{Wartość nagrody $R_t$}
+
+	$R_t \leftarrow 0.1$ \tcp*{Survival Reward}
+	$d_{min} \leftarrow \infty$; $target_{threat} \leftarrow$ None; $target_{rescue} \leftarrow$ None\;
+
+	\tcp{1. Percepcja (Wzrok i Słuch)}
+	\For{każda postać $c$ w zasięgu percepcji}{
+		\If{$c$ jest Zombie/Infected}{
+			$d \leftarrow dist(self, c)$\;
+			\If{$d < d_{min}$}{ $d_{min} \leftarrow d$; $target_{threat} \leftarrow c$ }
+		}
+	}
+
+	\tcp{2. Komunikacja (Broadcast)}
+	\If{$d_{min} \le DetectionRange$}{
+		\textbf{Broadcast}("threat\_alert", $target_{threat}.pos$)\;
+	}
+
+	\tcp{3. Fuzja Sensorów (Wejście Sieci)}
+	\If{$target_{threat}$ exists}{
+		$\vec{v}_{fear} \leftarrow \text{Normalize}(pos_{self} - pos_{threat})$ \tcp*{Wektor OD zagrożenia}
+	}
+	\Else{
+		$\vec{v}_{fear} \leftarrow [0, 0]$\;
+	}
+
+	$S_{rescue} \leftarrow \text{GetSignal("zombies\_killed")}$\;
+	\If{$S_{rescue}$ exists}{
+		$\vec{v}_{hope} \leftarrow \text{Normalize}(pos_{signal} - pos_{self})$ \tcp*{Wektor DO ratunku}
+	}
+	\Else{
+		$\vec{v}_{hope} \leftarrow [0, 0]$\;
+	}
+
+	\textbf{NeuralInput} $\leftarrow [\vec{v}_{fear}, \vec{v}_{hope}]$ \tcp*{Wektor 4-elementowy}
+
+	\tcp{4. Obliczenie Nagrody}
+	\If{kolizja ze ścianą}{
+		$R_t \leftarrow R_t - 0.5$\;
+	}
+
+	\If{$d_{min} < \infty$}{
+		\tcp{Strefa Paniki}
+		\If{$d_{min} < 5.0$}{
+			$R_t \leftarrow R_t - (5.0 - d_{min}) \cdot 0.2$\;
+		}
+
+		\tcp{Ocena kierunku ruchu}
+		\eIf{$d_{min} > d_{prev}$}{
+			$R_t \leftarrow R_t + 0.5$ \tcp*{Ucieczka}
+		}{
+			$R_t \leftarrow R_t - 0.5$ \tcp*{Zły kierunek}
+		}
+	}
+
+	\caption{Algorytm Zachowania Człowieka (Human Agent)}
+\end{algorithm}
+
+\subsection{Algorytmy Deterministyczne (Medyk)}
+
+Medycy w systemie nie używają sieci neuronowych, lecz hybrydowego podejścia
+opartego na algorytmie A* z dynamiczną koordynacją (protokół Claim \& Yield)
+oraz ograniczonym polem widzenia ("Fog of War").
+\begin{equation}
+	\mathcal{O}_{medic} = \{ p_j \mid p_j \in \text{Agents} \land p_j \ne \text{Target} \land \|p_{med} - p_j\| \le R_{vision} \}
+\end{equation}
+Medyk dodaje agentów do zbioru przeszkód $\mathcal{O}$ tylko wtedy, gdy znajdują się w jego promieniu wzroku ($R_{vision} = 8.0$), co symuluje brak pełnej wiedzy o mapie.
 
 \section{Implementacja Systemu}
 
