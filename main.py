@@ -39,8 +39,6 @@ def main():
         i += 1
         global_map = grid.get_global_map_matrix()
         
-        # Update
-        # grid.update()
         update_game_logic(grid, global_map)
         
         # Draw

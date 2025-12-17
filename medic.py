@@ -155,30 +155,26 @@ class Medic(Character):
         """Wysyła sygnał do innych medyków: 'Zajmuję ten cel'"""
         if not self.target_infected: return
         
-        # Ograniczamy spam (np. raz na 500ms), żeby nie zapchać kolejki sygnałów
+        # Ograniczamy spam
         current_time = pygame.time.get_ticks()
         if current_time - self.last_broadcast_time < 500:
             return
             
         self.last_broadcast_time = current_time
         
-        dist = math.sqrt((self.x - self.target_infected.x)**2 + (self.y - self.target_infected.y)**2)
+        # Obliczamy dystans do celu (potrzebny innym medykom do decyzji)
+        dist_to_target = math.sqrt((self.x - self.target_infected.x)**2 + (self.y - self.target_infected.y)**2)
         
-        for char in self.grid.characters:
-            if char is self: continue
-            
-            # Sprawdzamy czy to inny Medyk (tylko oni potrzebują tego info)
-            # Ale w RL lepiej wysłać wszystkim w zasięgu, a niech oni filtrują
-            d_to_char = math.sqrt((self.x - char.x)**2 + (self.y - char.y)**2)
-            
-            if d_to_char <= self.BROADCAST_RANGE:
-                if hasattr(char, 'receive_signal'):
-                    char.receive_signal("medic_en_route", {
-                        "medic_id": id(self), # Unikalne ID medyka
-                        "target_pos": (self.target_infected.x, self.target_infected.y),
-                        "target_id": id(self.target_infected), # ID pacjenta
-                        "dist_to_target": dist
-                    })
+        self.send_signal(
+            signal_type="medic_en_route",
+            broadcast_range=self.BROADCAST_RANGE,
+            data={
+                "medic_id": id(self),
+                "target_id": id(self.target_infected),
+                "target_pos": (self.target_infected.x, self.target_infected.y),
+                "dist_to_target": dist_to_target
+            }
+        )
 
     def check_competition(self):
         """
@@ -231,7 +227,6 @@ class Medic(Character):
         return 0
         
     def heal_target(self):
-        # ... (Skopiuj z poprzedniej odpowiedzi) ...
         if self.grid:
             from human import Human
             from soldier import Soldier
@@ -262,22 +257,16 @@ class Medic(Character):
             self.path = []
 
     def broadcast_heal(self, healed_character, healed_type):
-        # ... (Skopiuj z poprzedniej odpowiedzi) ...
-        if not self.grid: return
-        broadcast_range = 10.0
-        for character in self.grid.characters:
-            if character is self or character is healed_character: continue
-            dx = self.x - character.x
-            dy = self.y - character.y
-            distance = math.sqrt(dx*dx + dy*dy)
-            if distance <= broadcast_range:
-                if hasattr(character, 'receive_signal'):
-                    character.receive_signal("healing_performed", {
-                        "medic": self,
-                        "medic_pos": (self.x, self.y),
-                        "healed_pos": (healed_character.x, healed_character.y),
-                        "healed_type": healed_type
-                    })
+        """Informuje o uleczeniu"""
+        self.send_signal(
+            signal_type="healing_performed",
+            broadcast_range=10.0,
+            data={
+                "healed_pos": (healed_character.x, healed_character.y),
+                "healed_type": healed_type
+                # 'medic' to 'source' z send_signal
+            }
+        )
 
     def get_infected(self):
         self.is_alive = False

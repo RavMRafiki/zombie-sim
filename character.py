@@ -28,14 +28,6 @@ class Character:
         for _ in range(INITIAL_STATE_FRAMES):
             self.state_buffer.append(np.zeros((11, 11)))
     
-    def update(self, current_time):
-        """Update character movement based on elapsed time"""
-        if current_time - self.last_move_time >= self.move_speed:
-            self.move()
-            self.act()
-            self.process_signals()
-            self.last_move_time = current_time
-    
     def move(self, action_code=None):
         """Move character based on action code"""
         dx, dy = 0, 0
@@ -93,12 +85,19 @@ class Character:
             
             # Send signal if in range
             if distance <= broadcast_range:
-                character.receive_signal(signal_type, {
+                # 1. Tworzymy bazowy payload
+                payload = {
                     "source": self,
                     "source_pos": (self.x, self.y),
-                    "distance": distance,
-                    "data": data
-                })
+                    "distance": distance
+                }
+                
+                # 2. Jeśli przekazano dodatkowe dane, ŁĄCZYMY je z payloadem
+                # zamiast tworzyć zagnieżdżony klucz 'data'
+                if data:
+                    payload.update(data) 
+                
+                character.receive_signal(signal_type, payload)
     
     def receive_signal(self, signal_type, signal_data):
         """Receive a signal from another character"""
@@ -113,29 +112,6 @@ class Character:
         pixel_x = self.x * CELL_SIZE
         pixel_y = self.y * CELL_SIZE + offset_y
         pygame.draw.rect(screen, self.color, (pixel_x, pixel_y, CELL_SIZE, CELL_SIZE))
-    
-    def get_type_name(self):
-        """Return character type name"""
-        return self.char_type_name
-
-    def get_surrounding_characters(self, radius=3):
-        """Get characters within a certain radius"""
-        if not self.grid:
-            return []
-        
-        nearby_characters = []
-        for character in self.grid.characters:
-            if character is self:
-                continue
-            
-            dx = self.x - character.x
-            dy = self.y - character.y
-            distance = math.sqrt(dx*dx + dy*dy)
-            
-            if distance <= radius:
-                nearby_characters.append(character)
-        
-        return nearby_characters
     
     def get_observation(self, global_matrix):
         """

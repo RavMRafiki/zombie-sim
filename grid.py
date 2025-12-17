@@ -47,12 +47,6 @@ class Grid:
             y = random.randint(0, GRID_SIZE - 1)
             self.characters.append(Soldier(x, y, self))
     
-    def update(self):
-        """Update all characters"""
-        current_time = pygame.time.get_ticks()
-        for character in self.characters:
-            character.update(current_time)
-    
     def draw(self, screen, offset_y=0):
         """Draw grid and all characters"""
         # Draw grid lines

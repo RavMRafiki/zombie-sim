@@ -37,25 +37,16 @@ class Infected(Character):
     
     def broadcast_infected_status(self):
         """Broadcast infected status to nearby characters"""
-        if not self.grid:
-            return
         
-        for character in self.grid.characters:
-            if character is self:
-                continue
-            
-            dx = self.x - character.x
-            dy = self.y - character.y
-            distance = math.sqrt(dx*dx + dy*dy)
-            
-            # Send infected status if in broadcast range
-            if distance <= self.BROADCAST_RANGE:
-                character.receive_signal("got infected", {
-                    "source": self,
-                    "source_pos": (self.x, self.y),
-                    "distance": distance,
-                    "time_until_zombie": self.TRANSFORMATION_TIME - (pygame.time.get_ticks() - self.infection_start_time)
-                })
+        time_left = self.TRANSFORMATION_TIME - (pygame.time.get_ticks() - self.infection_start_time)
+        
+        self.send_signal(
+            signal_type="got infected",
+            broadcast_range=self.BROADCAST_RANGE,
+            data={
+                "time_until_zombie": time_left
+            }
+        )
     
     def transform_to_zombie(self):
         """Convert this infected to zombie"""
