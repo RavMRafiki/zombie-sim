@@ -1394,80 +1394,23 @@ if not occupied:
 
 \newpage
 
-\section{Analiza Złożoności Obliczeniowej}
-
-\subsection{Złożoność Czasowa}
-
-\subsubsection{Operacje na Agentach}
-
-Główne operacje wykonywane na każdego agenta (dla każdej klatki):
-
-\begin{itemize}
-	\item \textbf{Ruch:} $O(n)$ - sprawdzenie kolizji z wszystkimi agentami
-	\item \textbf{Obserwacja:} $O(1)$ - generowanie matrycy 11x11 (stały rozmiar)
-	\item \textbf{Działanie (act):} $O(n)$ - skanowanie w poszukiwaniu celów/zagrożeń
-	\item \textbf{Komunikacja:} $O(n)$ - rozsyłanie sygnałów do agentów w zasięgu
-\end{itemize}
-
-gdzie $n$ = liczba agentów w systemie
-
-\subsubsection{Pętla Główna Gry}
-
-Każda klatka wykonuje:
-\begin{align}
-	O_{frame} & = O(n \cdot O_{agent}) \\
-	          & = O(n) \cdot O(n)      \\
-	          & = O(n^2)
-\end{align}
-
-Dla domyślnej konfiguracji: - $n = 100$ agentów (40 zombie + 60 ludzi) -
-$O_{frame} = O(100^2) = 10,000$ operacji podstawowych na klatkę - FPS = 60 →
-$60 \times 10,000 = 600,000$ operacji/sekundę
-
-\textbf{Wniosek:} Złożoność $O(n^2)$ jest akceptowalna dla zakresu liczby agentów (do ~200).
-
-\subsection{Złożoność Pamięciowa}
-
-\subsubsection{Pamięć na Agenta}
-
-\begin{itemize}
-	\item \textbf{Atrybuty proste:} $x, y, color, move\_speed$ = 4 × 32-bit = 16 bajtów
-	\item \textbf{Referencja do gridu:} 1 wskaźnik = 8 bajtów
-	\item \textbf{State buffer:} 4 × (11 × 11) floats = 4 × 121 × 8 = 3,872 bajtów
-	\item \textbf{Lista sygnałów:} średnio 5 sygnałów × 32 bajty = 160 bajtów
-	\item \textbf{Inne atrybuty:} ~100 bajtów
-\end{itemize}
-
-\textbf{Razem na agenta:} $\approx 4,200$ bajtów $\approx 4$ KB
-
-\subsubsection{Całkowita Pamięć Systemu}
-
-$$M_{total} = n \cdot 4\text{ KB} + M_{grid} + M_{pygame}$$
-
-Dla $n=100$: $M_{total} \approx 100 \times 4\text{ KB} + 500\text{ KB} +
-	2\text{ MB} \approx 2.9\text{ MB}$
-
-\textbf{Wniosek:} Footprint pamięciowy jest znikomy dla współczesnych komputerów.
-
-\newpage
-
 \section{Wyniki Eksperymentów i Testy Porównawcze}
 
 \subsection{Testy Wydajnościowe}
 
 \subsubsection{Test 1: Stabilność FPS}
 
-\textbf{Konfiguracja:} 100 agentów (40Z, 60H), 60 FPS, czas trwania 1 minuta
+\textbf{Konfiguracja:} 100 agentów (40Z, 60H), 60 FPS (docelowe), czas trwania 1 minuta
 
 \textbf{Rezultaty:}
 \begin{itemize}
-	\item Średni FPS: 59.8
-	\item Min FPS: 58
-	\item Max FPS: 61
-	\item Stabilność: Bardzo wysoka
+	\item Średni FPS: 1.53 % Wartość pobrana z tabeli dla 100 agentów
+	\item Min FPS: 1.20
+	\item Max FPS: 1.90
+	\item Stabilność: Bardzo niska
 \end{itemize}
 
-\textbf{Wniosek:} System utrzymuje stałą prędkość dla domyślnej konfiguracji.
+\textbf{Wniosek:} System nie jest w stanie utrzymać docelowej płynności dla domyślnej konfiguracji. Wynik wskazuje na występowanie wąskiego gardła (bottleneck), prawdopodobnie po stronie układu graficznego.
 
 \subsubsection{Test 2: Skalowanie z Liczbą Agentów}
 
@@ -1475,41 +1418,20 @@ Dla $n=100$: $M_{total} \approx 100 \times 4\text{ KB} + 500\text{ KB} +
 	\centering
 	\begin{tabular}{|c|c|c|c|}
 		\hline
-		\textbf{Liczba Agentów} & \textbf{Średni FPS} & \textbf{Czas/Frame (ms)} & \textbf{CPU \%} \\
+		\textbf{Liczba Agentów} & \textbf{Średni FPS} & \textbf{Czas/Frame (ms)} & \textbf{GPU \%} \\
 		\hline
-		50                      & 60                  & 16.7                     & 15\%            \\
-		100                     & 59.8                & 16.7                     & 28\%            \\
-		200                     & 58                  & 17.2                     & 52\%            \\
-		500                     & 35                  & 28.6                     & 95\%            \\
+		50                      & 3.46                & 307                      & 80\%            \\
+		100                     & 1.53                & 631                      & 90\%            \\
+		200                     & 0.84                & 950                      & 100\%           \\
+		400                     & 0.36                & 3005                     & 100\%           \\
 		\hline
 	\end{tabular}
 	\caption{Wpływ liczby agentów na wydajność}
 \end{table}
 
-\textbf{Obserwacja:} Wydajność degrada się kwadratowo, potwierdzając analizę złożoności $O(n^2)$.
-
-\subsection{Test Dynamiki Populacji}
-
-\subsubsection{Scenariusz: 40 Zombie vs 60 Ludzi}
-
-\textbf{Hipoteza:} Zombie powoli zarazą większość ludzi, tworząc wachlarzy epidemii.
-
-\textbf{Obserwacja:}
-\begin{itemize}
-	\item Pierwsze zarażenie: ~10 sekund
-	\item Pik zarażonych: ~60 sekund (30\% populacji)
-	\item Równowaga: ~180 sekund (50Z, 30H, 20Inf)
-	\item Trend: Exponential growth zarażonych, linear decay ludzi
-\end{itemize}
-
-\subsubsection{Test z Medykami}
-
-\textbf{Konfiguracja:} 40Z, 50H, 5 Medyków
-
-\textbf{Wynik:} Medycy znacznie opóźniają rozprzestrzenianie się epidemii, choć asymptotycznie nie są w stanie jej powstrzymać.
+\textbf{Obserwacja:} Wydajność drastycznie spada wraz ze wzrostem liczby agentów. Już przy 50 agentach użycie GPU sięga 80\%, a przy 200 agentach następuje pełne nasycenie układu graficznego (100\%), co skutkuje nieliniowym wzrostem czasu generowania klatki (3005 ms dla 400 agentów). Potwierdza to, że obecna implementacja renderowania jest głównym ograniczeniem skalowalności systemu.
 
 \newpage
-
 \section{Wybrane Fragmenty Kodu}
 
 \subsection{Fragment 1: Logika Zarażenia Zombie}
