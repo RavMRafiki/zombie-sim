@@ -23,7 +23,7 @@ def main():
     pygame.display.set_caption("Zombie Outbreak Simulation")
     clock = pygame.time.Clock()
     
-    grid = Grid(num_zombies=120, num_humans=160, num_infected=0, num_medics=40, num_soldiers=80)
+    grid = Grid(num_zombies=30, num_humans=40, num_infected=0, num_medics=10, num_soldiers=20)
     font = pygame.font.Font(None, 24)
     
     running = True
