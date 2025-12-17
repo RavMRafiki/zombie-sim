@@ -13,15 +13,82 @@ class Soldier(Character):
     """Soldier character - combat specialist"""
     
     char_type_name = "Soldier"
-    color = (255, 255, 0)
-    move_speed = int(MOVE_INTERVAL * 0.8)
+    color = (255, 255, 0) # Żółty
+    move_speed = MOVE_INTERVAL 
+    
+    # Parametry bojowe
     KILL_RANGE = 3.0
     KILL_COOLDOWN = 5000
+    SIGHT_RANGE = 5.0      # Zasięg wzroku (widzi zombie)
+    SIGNAL_MEMORY_TIME = 4000 # Pamięta wezwania przez 4 sekundy
     
     def __init__(self, x, y, grid=None):
         super().__init__(x, y, grid)
         self.last_kill_time = 0
-    
+        self.prev_dist = float('inf')
+
+
+    def get_target_vector(self):
+        """
+        Zwraca wektor [dx, dy, weapon_status].
+        Priorytet 1: Widoczny Zombie (Atak).
+        Priorytet 2: Sygnał 'threat_alert' (Bieg na pomoc).
+        """
+        current_time = pygame.time.get_ticks()
+        
+        # 1. Status broni (0.0 - 1.0)
+        time_since_shot = current_time - self.last_kill_time
+        weapon_status = 1.0
+        if time_since_shot < self.KILL_COOLDOWN:
+            weapon_status = time_since_shot / self.KILL_COOLDOWN
+            
+        # 2. Szukanie celu
+        target_pos = None
+        min_dist = float('inf')
+
+        # Importy lokalne
+        from zombie import Zombie 
+        from infected import Infected
+
+        # PRIORYTET A: Wzrok (Walka bezpośrednia)
+        # Skanujemy tylko bliskie otoczenie (zasięg wzroku)
+        for char in self.grid.characters:
+            if isinstance(char, (Zombie, Infected)):
+                dist_sq = (self.x - char.x)**2 + (self.y - char.y)**2
+                
+                # Jeśli widzi wroga
+                if dist_sq <= (self.SIGHT_RANGE ** 2):
+                    if dist_sq < min_dist:
+                        min_dist = dist_sq
+                        target_pos = (char.x, char.y)
+        
+        # PRIORYTET B: Radio (Reagowanie na wezwania)
+        # Jeśli nie widzę wroga, sprawdzam czy ktoś woła pomocy
+        if not target_pos:
+            for signal in self.signals:
+                if signal['type'] == 'threat_alert':
+                    # Idziemy do źródła sygnału (tam gdzie jest człowiek w opałach)
+                    s_pos = signal['data']['source_pos']
+                    dist_sq = (self.x - s_pos[0])**2 + (self.y - s_pos[1])**2
+                    
+                    if dist_sq < min_dist:
+                        min_dist = dist_sq
+                        target_pos = s_pos
+        
+        # Jeśli nadal brak celu -> wektor zerowy
+        if not target_pos:
+            return np.array([0.0, 0.0, weapon_status], dtype=np.float32)
+
+        # 3. Oblicz wektor znormalizowany
+        dx = target_pos[0] - self.x
+        dy = target_pos[1] - self.y
+        length = math.sqrt(dx**2 + dy**2)
+        
+        if length == 0: 
+            return np.array([0.0, 0.0, weapon_status], dtype=np.float32)
+        
+        return np.array([dx / length, dy / length, weapon_status], dtype=np.float32)
+
     def act(self):
         """Logika walki i nagród Żołnierza"""
         if not self.grid:
@@ -30,19 +97,20 @@ class Soldier(Character):
         current_time = pygame.time.get_ticks()
         step_reward = 0
         
-        # 1. Nagroda za przeżycie (Standard)
+        # 1. Nagroda za przeżycie
         if self.is_alive:
-            step_reward += 1
+            step_reward += 0.5 # Mniejsza niż za fraga, ale stała
         else:
-            return 0 # Martwy żołnierz nic nie robi
+            return 0 
         
         from zombie import Zombie 
         from infected import Infected
         
-        # Sprawdzamy Cooldown
+        # 2. Próba strzału (jeśli cooldown minął)
         if current_time - self.last_kill_time >= self.KILL_COOLDOWN:
             
-            # Szukamy celu w zasięgu
+            # Szukamy celu w zasięgu strzału (KILL_RANGE)
+            # Tu musimy przeskanować grid, bo strzał jest natychmiastowy
             for character in self.grid.characters:
                 if isinstance(character, (Zombie, Infected)):
                     dx = self.x - character.x
@@ -51,117 +119,92 @@ class Soldier(Character):
                     
                     if distance <= self.KILL_RANGE:
                         # STRZAŁ!
-                        # Usuwamy zombie z gry (i z listy gridu)
-                        # Uwaga: Musimy to zrobić bezpiecznie, żeby nie posypała się pętla w main
-                        character.is_alive = False # Oznaczamy jako martwego
-                        # W main.py trzeba dodać usuwanie martwych postaci z listy!
-                        self.grid.characters.remove(character) 
+                        character.is_alive = False
+                        # Bezpieczne usuwanie w pętli main, tu tylko oznaczamy
+                        if character in self.grid.characters:
+                             self.grid.characters.remove(character)
                         
                         self.last_kill_time = current_time
                         self.broadcast_kill((character.x, character.y))
                         
-                        step_reward += 10 # <--- DUŻA NAGRODA ZA FRAGA
-                        print(f"Soldier {id(self)} killed a Zombie! Reward +50")
+                        step_reward += 10.0 # FRAG
+                        # print(f"Soldier {id(self)} killed a Zombie!")
                         break
         
-        # 3. Reward Shaping (Węch)
-        # Obliczamy dystans do najbliższego wroga
+        # 3. Reward Shaping (Zachęta do podążania za celem)
+        # Obliczamy dystans do tego, co wskazuje wektor celu (Zombie lub Sygnał)
+        
+        # Musimy odtworzyć logikę wyboru celu, żeby wiedzieć czy się zbliżamy
+        target_pos = None
         min_dist = float('inf')
-        for char in self.grid.characters:
-            if isinstance(char, (Zombie, Infected)): # Importy już są wyżej
-                dist = math.sqrt((self.x - char.x)**2 + (self.y - char.y)**2)
-                if dist < min_dist:
-                    min_dist = dist
-                    
-        # Inicjalizacja pamięci dystansu (dla pierwszego kroku)
-        if not hasattr(self, 'prev_dist'): self.prev_dist = min_dist
 
-        if min_dist < float('inf'):
-            # Sprawdzamy czy broń jest gotowa (lub prawie gotowa)
+        # (Kopia logiki z get_target_vector dla spójności nagród)
+        # A. Wzrok
+        for char in self.grid.characters:
+            if isinstance(char, (Zombie, Infected)):
+                d = math.sqrt((self.x - char.x)**2 + (self.y - char.y)**2)
+                if d <= self.SIGHT_RANGE and d < min_dist:
+                    min_dist = d
+                    target_pos = (char.x, char.y)
+        
+        # B. Radio
+        if not target_pos:
+            for signal in self.signals:
+                if signal['type'] == 'threat_alert':
+                    s_pos = signal['data']['source_pos']
+                    d = math.sqrt((self.x - s_pos[0])**2 + (self.y - s_pos[1])**2)
+                    if d < min_dist:
+                        min_dist = d
+                        target_pos = s_pos
+
+        # Nagradzanie ruchu
+        if target_pos:
+            # Sprawdzamy status broni
             is_weapon_ready = (current_time - self.last_kill_time) > (self.KILL_COOLDOWN * 0.8)
             
             if is_weapon_ready:
-                # Jeśli broń gotowa -> nagroda za ZBLIŻANIE SIĘ (Atak)
+                # Jeśli broń gotowa -> idź do celu
                 if min_dist < self.prev_dist:
-                    step_reward += 0.5 
+                    step_reward += 0.2
                 elif min_dist > self.prev_dist:
-                    step_reward -= 0.5
+                    step_reward -= 0.2
             else:
-                # Jeśli przeładowuje -> nagroda za UTRZYMANIE DYSTANSU (Kiting)
-                # (Opcjonalnie: można to pominąć i pozwolić mu samemu odkryć, że blisko zombie = śmierć)
+                # Jeśli cooldown -> trzymaj dystans (opcjonalne)
                 pass
-
+                
             self.prev_dist = min_dist
+        else:
+            self.prev_dist = float('inf')
             
         return step_reward
     
     def broadcast_kill(self, kill_pos):
         """Broadcast kill action to nearby characters"""
-        if not self.grid:
-            return
+        if not self.grid: return
         
-        broadcast_range = 7.0
+        broadcast_range = 10.0 # Zwiększony zasięg (dźwięk strzału niesie się daleko)
         
         for character in self.grid.characters:
-            if character is self:
-                continue
+            if character is self: continue
             
             dx = self.x - character.x
             dy = self.y - character.y
             distance = math.sqrt(dx*dx + dy*dy)
             
-            # Send kill info if in broadcast range
             if distance <= broadcast_range:
-                character.receive_signal("zombies_killed", {
-                    "soldier": self,
-                    "soldier_pos": (self.x, self.y),
-                    "kill_position": kill_pos,
-                    "distance": distance
-                })
+                # Sprawdzamy czy postać obsługuje sygnały
+                if hasattr(character, 'receive_signal'):
+                    character.receive_signal("zombies_killed", {
+                        "soldier": self,
+                        "soldier_pos": (self.x, self.y),
+                        "kill_position": kill_pos,
+                        "distance": distance
+                    })
 
-    def get_target_vector(self):
-        """
-        Zwraca wektor [dx, dy, weapon_status].
-        Wskazuje na najbliższego ZOMBIE (nie człowieka).
-        """
-        # 1. Oblicz status broni (0.0 - 1.0)
-        current_time = pygame.time.get_ticks()
-        time_since_shot = current_time - self.last_kill_time
-        
-        weapon_status = 1.0 # Domyślnie gotowa
-        if time_since_shot < self.KILL_COOLDOWN:
-            weapon_status = time_since_shot / self.KILL_COOLDOWN
-            
-        # 2. Znajdź najbliższego ZOMBIE
-        closest_zombie = None
-        min_dist = float('inf')
-
-        from zombie import Zombie 
-        from infected import Infected
-
-        for char in self.grid.characters:
-            if isinstance(char, (Zombie, Infected)): # Żołnierz celuje we wrogów
-                dist = (self.x - char.x)**2 + (self.y - char.y)**2
-                if dist < min_dist:
-                    min_dist = dist
-                    closest_zombie = char
-                    
-        # Jeśli brak wrogów, zwracamy same zera (i status broni)
-        if closest_zombie is None:
-            return np.array([0.0, 0.0, weapon_status], dtype=np.float32)
-            
-        # 3. Oblicz wektor znormalizowany
-        dx = closest_zombie.x - self.x
-        dy = closest_zombie.y - self.y
-        length = math.sqrt(dx**2 + dy**2)
-        
-        if length == 0: 
-            return np.array([0.0, 0.0, weapon_status], dtype=np.float32)
-        
-        # Zwracamy wektor 3-elementowy
-        return np.array([dx / length, dy / length, weapon_status], dtype=np.float32)
-    
     def get_infected(self):
         """Metoda wywoływana przez Zombie, gdy infekcja się uda."""
         self.is_alive = False
-        print(f"Żołnierz {id(self)} został zarażony! Kara -10")
+        print(f"Żołnierz {id(self)} został zarażony! Kara -50") 
+        # Żołnierz też może wołać medyka
+        if hasattr(self, 'broadcast_help_request'):
+             self.broadcast_help_request()

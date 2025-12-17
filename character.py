@@ -21,7 +21,7 @@ class Character:
         self.is_alive = True
         self.last_move_time = pygame.time.get_ticks()
         self.signals = []
-        self.SIGNAL_MEMORY_TIME = 3000 # Pamiętamy sygnały przez 3 sekundy
+        self.SIGNAL_MEMORY_TIME = 10000 # Pamiętamy sygnały przez 10 sekund
         # Inicjalizacja pustego bufora (4 klatki, 11x11 zer)
         self.state_buffer = deque(maxlen=4)
         for _ in range(4):
@@ -107,14 +107,10 @@ class Character:
             "time": pygame.time.get_ticks()
         })
     
-    def process_signals(self):
-        """Process all received signals (override in subclasses for custom behavior)"""
-        self.signals.clear()
-    
-    def draw(self, screen):
+    def draw(self, screen, offset_y=0):
         """Draw character on screen"""
         pixel_x = self.x * CELL_SIZE
-        pixel_y = self.y * CELL_SIZE
+        pixel_y = self.y * CELL_SIZE + offset_y
         pygame.draw.rect(screen, self.color, (pixel_x, pixel_y, CELL_SIZE, CELL_SIZE))
     
     def get_type_name(self):

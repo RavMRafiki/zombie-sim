@@ -53,16 +53,16 @@ class Grid:
         for character in self.characters:
             character.update(current_time)
     
-    def draw(self, screen):
+    def draw(self, screen, offset_y=0):
         """Draw grid and all characters"""
         # Draw grid lines
-        for i in range(0, WINDOW_SIZE, CELL_SIZE):
-            pygame.draw.line(screen, COLOR_GRID, (i, 0), (i, WINDOW_SIZE))
-            pygame.draw.line(screen, COLOR_GRID, (0, i), (WINDOW_SIZE, i))
-        
-        # Draw characters
-        for character in self.characters:
-            character.draw(screen)
+        for i in range(0, WINDOW_SIZE, CELL_SIZE): 
+            pygame.draw.line(screen, COLOR_GRID, (i, offset_y), (i, WINDOW_SIZE + offset_y)) 
+            pygame.draw.line(screen, COLOR_GRID, (0, i + offset_y), (WINDOW_SIZE, i + offset_y)) 
+            
+        # Draw characters (też przesunięte) 
+        for character in self.characters: 
+            character.draw(screen, offset_y=offset_y)
     
     def get_stats(self):
         """Get count of each character type"""

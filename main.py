@@ -13,13 +13,13 @@ from constants import WINDOW_SIZE, COLOR_BACKGROUND, FPS
 pygame.init()
 
 zombie_agent = DQNAgent(input_shape=(4, 11, 11))
-human_agent = DQNAgent(input_shape=(4, 11, 11))
+human_agent = DQNAgent(input_shape=(4, 11, 11), vector_size=4)
 soldier_agent = DQNAgent(input_shape=(4, 11, 11), vector_size=3)
 
 def main():
     """Main game loop"""
     print("Initializing simulation...")
-    screen = pygame.display.set_mode((WINDOW_SIZE, WINDOW_SIZE))
+    screen = pygame.display.set_mode((WINDOW_SIZE, WINDOW_SIZE+ 40))
     pygame.display.set_caption("Zombie Outbreak Simulation")
     clock = pygame.time.Clock()
     
@@ -45,7 +45,7 @@ def main():
         
         # Draw
         screen.fill(COLOR_BACKGROUND)
-        grid.draw(screen)
+        grid.draw(screen, offset_y=40)
         
         # Draw stats
         zombie_count, human_count, infected_count, medic_count, soldier_count = grid.get_stats()
@@ -70,6 +70,8 @@ def update_game_logic(grid, global_map):
         if isinstance(char, Infected):
             char.act()
             continue # Infected nie używają sieci neuronowej
+
+        char.process_signals()  # Przetwarzamy sygnały (usuwamy stare)
         # 1. OBSERWACJA (State)
         # Musisz napisać metodę get_observation(), która zwraca 4x11x11
         # 1. Pobierz obserwację wizualną
@@ -113,9 +115,13 @@ def update_game_logic(grid, global_map):
              char.act()
         if isinstance(char, Zombie):
             if action == 4:
-                reward -= 0.5 # Kara za czekanie (pogania zombie)
+                # Sprawdzamy czy ma kogoś blisko
+                if hasattr(char, 'prev_dist') and char.prev_dist < char.SIEGE_RANGE:
+                    pass # Nie karzemy za stanie, jeśli stoi przy ofierze (atakuje/czeka w kolejce)
+                else:
+                    reward -= 0.5 # Kara za stanie bezczynnie daleko od ofiar
             reward += char.act() # Tu wróci +10 jeśli zaraził
-            reward -= 0.1 # Kara za czas (pogania zombie)
+            reward -= 0.05 # Kara za czas (pogania zombie)
         elif isinstance(char, Soldier):
             reward += char.act() # Tu wróci +1 za przeżycie i +10 za zabicie
             if not char.is_alive:

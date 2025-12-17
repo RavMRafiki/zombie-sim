@@ -1,6 +1,6 @@
 """Game constants and configuration"""
 
-GRID_SIZE = 256
+GRID_SIZE = 128
 CELL_SIZE = 4
 WINDOW_SIZE = GRID_SIZE * CELL_SIZE
 MOVE_INTERVAL = 100  # milliseconds
