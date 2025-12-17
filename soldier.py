@@ -20,6 +20,7 @@ class Soldier(Character):
     KILL_RANGE = 3.0
     KILL_COOLDOWN = 5000
     SIGHT_RANGE = 5.0      # Zasięg wzroku (widzi zombie)
+    BROADCAST_RANGE = 50.0  
     SIGNAL_MEMORY_TIME = 4000 # Pamięta wezwania przez 4 sekundy
     
     def __init__(self, x, y, grid=None):
@@ -180,31 +181,18 @@ class Soldier(Character):
     
     def broadcast_kill(self, kill_pos):
         """Broadcast kill action to nearby characters"""
-        if not self.grid: return
-        
-        broadcast_range = 10.0 # Zwiększony zasięg (dźwięk strzału niesie się daleko)
-        
-        for character in self.grid.characters:
-            if character is self: continue
-            
-            dx = self.x - character.x
-            dy = self.y - character.y
-            distance = math.sqrt(dx*dx + dy*dy)
-            
-            if distance <= broadcast_range:
-                # Sprawdzamy czy postać obsługuje sygnały
-                if hasattr(character, 'receive_signal'):
-                    character.receive_signal("zombies_killed", {
-                        "soldier": self,
-                        "soldier_pos": (self.x, self.y),
-                        "kill_position": kill_pos,
-                        "distance": distance
-                    })
+        self.send_signal(
+            signal_type="zombies_killed",
+            broadcast_range=self.BROADCAST_RANGE,
+            data={
+                "soldier_pos": kill_pos,
+                # 'soldier' i 'distance' doda automatycznie send_signal jako 'source' i 'distance'
+            }
+        )
 
     def get_infected(self):
         """Metoda wywoływana przez Zombie, gdy infekcja się uda."""
         self.is_alive = False
-        print(f"Żołnierz {id(self)} został zarażony! Kara -50") 
         # Żołnierz też może wołać medyka
         if hasattr(self, 'broadcast_help_request'):
              self.broadcast_help_request()

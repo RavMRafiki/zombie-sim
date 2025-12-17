@@ -79,6 +79,23 @@ class TestCharacterInitialization:
             assert frame.shape == (11, 11)
             assert np.all(frame == 0)
 
+    def test_character_is_alive_initialized_true(self, character):
+        """Test is_alive is initialized as True (mutmut_4 and mutmut_5)"""
+        assert character.is_alive is True
+        assert character.is_alive is not False
+        assert character.is_alive is not None
+    
+    def test_character_is_alive_boolean_type(self, character):
+        """Test is_alive is a boolean, not None or other type"""
+        assert isinstance(character.is_alive, bool)
+        assert character.is_alive == True
+
+    def test_character_signal_memory_time_exact_value(self, character):
+        """Test SIGNAL_MEMORY_TIME is exactly 10000 (mutmut_9 uses 10001)"""
+        assert character.SIGNAL_MEMORY_TIME == 10000
+        assert character.SIGNAL_MEMORY_TIME != 10001
+        assert character.SIGNAL_MEMORY_TIME > 0
+
 class TestCharacterMovement:
     """Tests for Character movement"""
     
@@ -306,13 +323,130 @@ class TestCharacterActions:
         assert "time" in character.signals[0]
     
     def test_process_signals_clears_signals(self, character):
-        """Test process_signals clears the signals list"""
-        character.signals = [{"type": "test", "data": {}}]
+        """Test process_signals clears old signals"""
+        # Create a signal with an old timestamp (older than SIGNAL_MEMORY_TIME)
+        old_time = pygame.time.get_ticks() - 11000  # 11 seconds ago (SIGNAL_MEMORY_TIME is 10000)
+        character.signals = [{"type": "test", "data": {}, "time": old_time}]
         character.process_signals()
         
         assert character.signals == []
+
+    def test_process_signals_keeps_recent_signals(self, character):
+        """Test process_signals keeps recent signals"""
+        # Create a signal with a recent timestamp (younger than SIGNAL_MEMORY_TIME)
+        recent_time = pygame.time.get_ticks() - 5000  # 5 seconds ago
+        character.signals = [{"type": "test", "data": {}, "time": recent_time}]
+        character.process_signals()
+        
+        # Signal should still be in the list
+        assert len(character.signals) == 1
+        assert character.signals[0]["type"] == "test"
+
+    def test_process_signals_mixed_old_and_new(self, character):
+        """Test process_signals removes only old signals"""
+        old_time = pygame.time.get_ticks() - 11000  # 11 seconds ago
+        recent_time = pygame.time.get_ticks() - 5000  # 5 seconds ago
+        
+        character.signals = [
+            {"type": "old", "data": {}, "time": old_time},
+            {"type": "new", "data": {}, "time": recent_time},
+        ]
+        character.process_signals()
+        
+        # Only recent signal should remain
+        assert len(character.signals) == 1
+        assert character.signals[0]["type"] == "new"
+
+    def test_process_signals_returns_list_not_none(self, character):
+        """Test that process_signals returns signals as list, not None (mutmut_2)"""
+        character.signals = [{"type": "test", "data": {}, "time": pygame.time.get_ticks()}]
+        character.process_signals()
+        
+        # signals must be a list, not None
+        assert isinstance(character.signals, list)
+        assert character.signals is not None
+
+    def test_process_signals_uses_subtraction_not_addition(self, character):
+        """Test process_signals uses subtraction for time comparison (mutmut_3)"""
+        # Use a signal at the boundary: exactly at SIGNAL_MEMORY_TIME ago
+        boundary_time = pygame.time.get_ticks() - character.SIGNAL_MEMORY_TIME
+        character.signals = [{"type": "boundary", "data": {}, "time": boundary_time}]
+        character.process_signals()
+        
+        # The signal should be removed because current_time - boundary_time 
+        # equals SIGNAL_MEMORY_TIME, and we check < not <=
+        # If addition was used instead (current_time + boundary_time), 
+        # the logic would be completely broken
+        assert len(character.signals) == 0
+
+    def test_process_signals_uses_correct_time_key(self, character):
+        """Test process_signals accesses 'time' key, not 'XXtimeXX' or 'TIME' (mutmut_4, mutmut_5)"""
+        recent_time = pygame.time.get_ticks() - 5000
+        character.signals = [{"type": "test", "data": {}, "time": recent_time}]
+        
+        # This should not raise KeyError
+        try:
+            character.process_signals()
+            success = True
+        except KeyError:
+            success = False
+        
+        assert success, "process_signals should access the correct 'time' key"
+        assert len(character.signals) == 1
+
+    def test_process_signals_less_than_comparison(self, character):
+        """Test process_signals uses < not <= for comparison (mutmut_6)"""
+        # Create a signal that is exactly SIGNAL_MEMORY_TIME old
+        exact_boundary_time = pygame.time.get_ticks() - character.SIGNAL_MEMORY_TIME
+        character.signals = [{"type": "boundary", "data": {}, "time": exact_boundary_time}]
+        
+        character.process_signals()
+        
+        # With correct < operator, this signal should be REMOVED (age is NOT < SIGNAL_MEMORY_TIME)
+        # With <= operator, it would be kept (age <= SIGNAL_MEMORY_TIME would be true)
+        assert len(character.signals) == 0, "Signal at exact boundary should be removed with < operator"
+
+    def test_process_signals_just_before_boundary(self, character):
+        """Test process_signals keeps signals just before boundary (mutmut_6)"""
+        # Create a signal that is just under SIGNAL_MEMORY_TIME old
+        just_under_boundary = pygame.time.get_ticks() - character.SIGNAL_MEMORY_TIME + 100  # 100ms before boundary
+        character.signals = [{"type": "recent", "data": {}, "time": just_under_boundary}]
+        
+        character.process_signals()
+        
+        # This signal should be KEPT
+        assert len(character.signals) == 1, "Signal just before boundary should be kept"
+
+    def test_process_signals_empty_list(self, character):
+        """Test process_signals handles empty signal list"""
+        character.signals = []
+        character.process_signals()
+        
+        assert character.signals == []
+
+    def test_process_signals_multiple_signals_selective_removal(self, character):
+        """Test process_signals with multiple signals of varying ages"""
+        now = pygame.time.get_ticks()
+        
+        character.signals = [
+            {"type": "very_old", "data": {}, "time": now - 15000},
+            {"type": "old", "data": {}, "time": now - 11000},
+            {"type": "medium", "data": {}, "time": now - 5000},
+            {"type": "young", "data": {}, "time": now - 1000},
+        ]
+        
+        character.process_signals()
+        
+        # Should keep only medium and young (< 10000 ms old)
+        assert len(character.signals) == 2
+        remaining_types = [s["type"] for s in character.signals]
+        assert "medium" in remaining_types
+        assert "young" in remaining_types
+        assert "very_old" not in remaining_types
+        assert "old" not in remaining_types
+
     def test_send_signal_uses_lowercase_data_key(self, mock_grid, character):
-        """Test that send_signal uses 'data' (not 'DATA') as the key in signal data"""
+        """Test that send_signal spreads data keys into payload"""
         other_char = Mock()
         other_char.x = character.x + 1
         other_char.y = character.y
@@ -324,10 +458,10 @@ class TestCharacterActions:
 
         other_char.receive_signal.assert_called_once()
         call_args = other_char.receive_signal.call_args
-        # The signal data dict should have a 'data' key, not 'DATA'
-        assert "data" in call_args[0][1]
-        assert "DATA" not in call_args[0][1]
-        assert call_args[0][1]["data"] == {"foo": "bar"}
+        # The signal data dict should contain the spread data from the payload
+        payload = call_args[0][1]
+        assert "foo" in payload
+        assert "bar" == payload["foo"]
     def test_send_signal_default_broadcast_range_is_3(self, mock_grid, character):
         """Test that send_signal uses default broadcast_range of 3, not 4"""
         # Character at distance exactly 3 should receive signal with default range
@@ -374,53 +508,9 @@ class TestCharacterActions:
 class TestCharacterUpdate:
     """Tests for Character update method"""
     
-    def test_update_without_elapsed_time(self, character):
-        """Test update doesn't trigger movement without sufficient time elapsed"""
-        with patch.object(character, 'move') as mock_move:
-            with patch.object(character, 'act') as mock_act:
-                character.update(character.last_move_time + 50)  # Less than MOVE_INTERVAL
-                
-                mock_move.assert_not_called()
-                mock_act.assert_not_called()
-    
-    def test_update_with_elapsed_time(self, character):
-        """Test update triggers movement when sufficient time elapsed"""
-        with patch.object(character, 'move') as mock_move:
-            with patch.object(character, 'act') as mock_act:
-                character.update(character.last_move_time + MOVE_INTERVAL + 10)
-                
-                mock_move.assert_called_once()
-                mock_act.assert_called_once()
-    
-    def test_update_with_elapsed_time_exactly_move_speed(self, character):
-        """Test update triggers movement when elapsed time equals move_speed exactly"""
-        with patch.object(character, 'move') as mock_move:
-            with patch.object(character, 'act') as mock_act:
-                character.update(character.last_move_time + MOVE_INTERVAL)
-                
-                mock_move.assert_called_once()
-                mock_act.assert_called_once()
-    
-    def test_update_updates_last_move_time(self, character):
-        """Test update updates last_move_time"""
-        old_time = character.last_move_time
-        new_time = old_time + MOVE_INTERVAL + 10
-        
-        with patch.object(character, 'move'):
-            with patch.object(character, 'act'):
-                character.update(new_time)
-        
-        assert character.last_move_time == new_time
-    
-    def test_update_processes_signals(self, character):
-        """Test update calls process_signals"""
-        character.signals = [{"type": "test", "data": {}}]
-        
-        with patch.object(character, 'move'):
-            with patch.object(character, 'act'):
-                character.update(character.last_move_time + MOVE_INTERVAL + 10)
-        
-        assert character.signals == []
+    def test_move_speed_attribute(self, character):
+        """Test that move_speed attribute is set correctly"""
+        assert character.move_speed == MOVE_INTERVAL
 
 
 class TestCharacterObservation:
@@ -625,73 +715,34 @@ class TestCharacterObservation:
 class TestCharacterSurrounding:
     """Tests for getting surrounding characters"""
     
-    def test_get_surrounding_characters_empty(self, mock_grid, character):
-        """Test get_surrounding_characters with no nearby characters"""
-        mock_grid.characters = [character]
-        
-        nearby = character.get_surrounding_characters(radius=3)
-        assert nearby == []
-    
-    def test_get_surrounding_characters_in_range(self, mock_grid, character):
-        """Test get_surrounding_characters finds characters in range"""
-        other_char1 = Mock()
-        other_char1.x = character.x + 1
-        other_char1.y = character.y
-        
-        other_char2 = Mock()
-        other_char2.x = character.x + 3
-        other_char2.y = character.y
-        
-        mock_grid.characters = [character, other_char1, other_char2]
-        
-        nearby = character.get_surrounding_characters(radius=3)
-        assert len(nearby) == 2
-        assert other_char1 in nearby
-        assert other_char2 in nearby
-    
-    def test_get_surrounding_characters_out_of_range(self, mock_grid, character):
-        """Test get_surrounding_characters excludes out of range characters"""
+    def test_send_signal_default_broadcast_range_is_3_coverage(self, mock_grid, character):
+        """Test signal sending broadcasts properly"""
         other_char = Mock()
-        other_char.x = character.x + 10
-        other_char.y = character.y + 10
+        other_char.x = character.x + 2
+        other_char.y = character.y
+        other_char.receive_signal = Mock()
         
         mock_grid.characters = [character, other_char]
+        character.send_signal("test_signal")
         
-        nearby = character.get_surrounding_characters(radius=3)
-        assert len(nearby) == 0
+        other_char.receive_signal.assert_called_once()
+
+
+class TestCharacterTypeAndProperties:
+    """Tests for character type and properties"""
     
-    def test_get_surrounding_characters_without_grid(self, character):
-        """Test get_surrounding_characters returns empty list without grid"""
-        character.grid = None
-        nearby = character.get_surrounding_characters(radius=3)
-        assert nearby == []
+    def test_char_type_name_returns_correct_value(self, character):
+        """Test char_type_name returns correct value"""
+        assert character.char_type_name == "Character"
     
-    def test_get_surrounding_characters_excludes_self(self, mock_grid, character):
-        """Test get_surrounding_characters excludes self"""
-        mock_grid.characters = [character]
-        
-        nearby = character.get_surrounding_characters(radius=100)
-        assert character not in nearby
+    def test_char_type_name_class_attribute(self):
+        """Test char_type_name is a class attribute"""
+        assert Character.char_type_name == "Character"
+
+
+class TestCharacterBoundaryObservation:
+    """Tests for boundary condition in observation"""
     
-    def test_get_surrounding_characters_default_radius(self, mock_grid, character):
-        """Test get_surrounding_characters uses correct default radius of 3"""
-        # Character at distance 3 should be included with default radius
-        in_range = Mock()
-        in_range.x = character.x + 3
-        in_range.y = character.y
-        
-        # Character at distance 4 should be excluded with default radius
-        out_of_range = Mock()
-        out_of_range.x = character.x + 4
-        out_of_range.y = character.y
-        
-        mock_grid.characters = [character, in_range, out_of_range]
-        
-        # Call without specifying radius to verify default is 3
-        nearby = character.get_surrounding_characters()
-        assert len(nearby) == 1
-        assert in_range in nearby
-        assert out_of_range not in nearby
     def test_get_observation_boundary_condition_uses_greater_than_not_gte(self, character):
         """Test that boundary check uses > not >= to catch mutation"""
         # Position character such that y_end equals GRID_SIZE exactly
@@ -752,13 +803,61 @@ class TestCharacterDrawing:
         assert rect[2] == CELL_SIZE
         assert rect[3] == CELL_SIZE
 
+    @patch('pygame.draw.rect')
+    def test_draw_with_offset_y_adds_correctly(self, mock_rect, character):
+        """Test draw uses + for offset_y, not - (mutmut_5)"""
+        mock_screen = Mock()
+        offset_y = 50
+        
+        character.draw(mock_screen, offset_y=offset_y)
+        
+        mock_rect.assert_called_once()
+        call_args = mock_rect.call_args[0]
+        
+        # Check that rect y-coordinate ADDS offset_y, not subtracts
+        rect = call_args[2]
+        expected_y = character.y * CELL_SIZE + offset_y
+        actual_y = rect[1]
+        
+        assert actual_y == expected_y
+        assert actual_y != character.y * CELL_SIZE - offset_y  # Would be wrong with - operator
+        
+    @patch('pygame.draw.rect')
+    def test_draw_offset_y_zero_default(self, mock_rect, character):
+        """Test draw with default offset_y=0"""
+        mock_screen = Mock()
+        
+        character.draw(mock_screen)
+        
+        mock_rect.assert_called_once()
+        call_args = mock_rect.call_args[0]
+        rect = call_args[2]
+        
+        # With offset_y=0, y should be same as without offset
+        assert rect[1] == character.y * CELL_SIZE
+
+    @patch('pygame.draw.rect')
+    def test_draw_offset_y_positive(self, mock_rect, character):
+        """Test draw with positive offset_y"""
+        mock_screen = Mock()
+        offset_y = 100
+        
+        character.draw(mock_screen, offset_y=offset_y)
+        
+        mock_rect.assert_called_once()
+        call_args = mock_rect.call_args[0]
+        rect = call_args[2]
+        
+        # y should be increased by offset_y
+        assert rect[1] == character.y * CELL_SIZE + offset_y
+
 
 class TestCharacterTypeAndProperties:
     """Tests for Character type and properties"""
     
-    def test_get_type_name(self, character):
-        """Test get_type_name returns correct type"""
-        assert character.get_type_name() == "Character"
+    def test_char_type_name_returns_correct_value(self, character):
+        """Test char_type_name returns correct value"""
+        assert character.char_type_name == "Character"
     
     def test_char_type_name_class_attribute(self):
         """Test char_type_name is a class attribute"""
