@@ -86,15 +86,14 @@
 
 \begin{document}
 
-\title{Symulacja wybuchu epidemii zombie\\\small{Dokumentacja projektu systemu wieloagentowego}}
-\author{Rafal}
+\title{Symulacja wybuchu epidemii zombie\\\small{Dokumentacja projektu systemu wieloagentowego z Q-learningiem}}
+\author{Rafał Maciończyk, Patryk Buchtyar}
 \date{\today}
 
 \maketitle
 \tableofcontents
 \newpage
 
-% ========== CZĘŚĆ I: OPIS SYSTEMU ==========
 \section{Model Systemu Informatycznego}
 
 \subsection{Definicja Modelu}
@@ -205,9 +204,6 @@ postaci w formacie: \texttt{Zombies: X | Humans: Y | Infected: Z | Medics: A |
 % \end{itemize}
 
 \newpage
-% ========== CZĘŚĆ II: MODEL MATEMATYCZNY I ALGORYTMY ==========
-\section*{Część II: Model Matematyczny i Algorytmy}
-
 \subsection{Model Matematyczny Systemu}
 
 System symulacyjny oparty jest na modelu wieloagentowym (MAS), w którym agenci
@@ -538,6 +534,7 @@ Projekt jest podzielony na moduły funkcjonalne:
 	\item \textbf{human.py} - Implementacja ludzi (agenci defensywni)
 	\item \textbf{infected.py} - Implementacja zarażonych (stan przejściowy)
 	\item \textbf{medic.py} - Implementacja medyków (agenci leczący)
+	\item \textbf{pathfinding.py} - Moduł algorytmu ścieżkowania A*
 	\item \textbf{soldier.py} - Implementacja żołnierzy (agenci walczący)
 	\item \textbf{grid.py} - Menedżer siatki i wszystkich agentów
 	\item \textbf{constants.py} - Stałe konfiguracyjne systemu
@@ -1160,23 +1157,6 @@ Dla $n=100$: $M_{total} \approx 100 \times 4\text{ KB} + 500\text{ KB} +
 
 \textbf{Wynik:} Medycy znacznie opóźniają rozprzestrzenianie się epidemii, choć asymptotycznie nie są w stanie jej powstrzymać.
 
-\subsection{Analiza Statystyczna}
-
-\subsubsection{Współczynnik Infekacji}
-
-Współczynnik $R_0$ (reproduction number) - ile osób zaraża jeden zombie:
-
-$$R_0 = \frac{\text{liczba zarażonych w równowadze}}{\text{liczba zombie} \cdot \text{czas}}$$
-
-Empirycznie: $R_0 \approx 1.5$ dla domyślnych parametrów.
-
-\subsubsection{Czas Połowicznego Rozpadu Ludzi}
-
-$$t_{1/2} = \frac{\ln(2) \cdot N_0}{k}$$
-
-gdzie $k$ = stała rozpadu (zarażania)
-
-Empirycznie: $t_{1/2} \approx 120$ sekund dla 100 agentów.
 
 \newpage
 
@@ -1327,7 +1307,6 @@ def broadcast_threat_info(self, threats):
 	\item System buforowania obserwacji (state\_buffer) jest efektywny dla DQN
 	\item Reward shaping jest kluczowy dla osłabiania podejmowania decyzji przez agentów
 	\item Kompleksowe testy (jednostkowe, mutacyjne) zapewniają niezawodność kodu
-	\item Złożoność $O(n^2)$ jest akceptowalna do ~200 agentów
 \end{itemize}
 
 \end{document}
