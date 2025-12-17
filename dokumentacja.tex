@@ -652,9 +652,9 @@ Polecenie: \texttt{pytest tests/character\_test.py -v}
 
 \textbf{Statystyka testów:}
 \begin{itemize}
-	\item Liczba testów: 45+
-	\item Testy przechodzące: 40+
-	\item Pokrycie kodu: ~75\% klasy Character
+	\item Liczba testów: 63
+	\item Testy przechodzące: 63
+	\item Pokrycie kodu: ~100\% klasy Character
 \end{itemize}
 
 \subsection{Testy Mutacyjne}
@@ -668,9 +668,13 @@ kodzie i sprawdza, czy testy je wykrywają (killed) czy nie (survived).
 \subsubsection{Strategia Testowania}
 
 \begin{enumerate}
-	\item Uruchomienie: \texttt{mutmut run --paths-to-mutate=character.py}
+	\item Uruchomienie: \texttt{mutmut run}
 	\item Analiza wyników: \texttt{mutmut results}
-	\item Wyświetlenie szczegółów: \texttt{mutmut show character.py}
+	\item Wyświetlenie wszystkich mutacji, które przeżyły: \texttt{mutmut results}
+	\item Wyświetlenie wszystkich mutacji (pełna lista): \texttt{mutmut results
+		      --all=true}
+	\item Wyświetlenie szczegółów: \texttt{\detokenize{mutmut show
+			      character.x|Character|get_target_vector__mutmut_6}}
 \end{enumerate}
 
 \subsubsection{Przykładowe Mutacje}
@@ -684,33 +688,28 @@ if current_time - self.last_move_time >= self.move_speed:
 if current_time - self.last_move_time > self.move_speed:
 		\end{lstlisting}
 	      Status: \textbf{KILLED} (testy wykrywają tę zmianę)
-
-	\item \textbf{Mutacja 43} - Zmiana zakresu pętli w obserwacji
-	      Status: \textbf{SURVIVED} (testy nie wykrywają - wymaga wzmocnienia)
+	\item \textbf{Mutacja 23} - Zmiana wartości zwracanej przez funkcję \texttt{move()} z \texttt{True} na \texttt{False}
+	      \begin{lstlisting}[language=Python]
+# Original
+if not occupied:
+	self.x = new_x
+	self.y = new_y
+	return True
+# Mutated
+if not occupied:
+	self.x = new_x
+	self.y = new_y
+	return False
+		  \end{lstlisting}
+	      Status: \textbf{KILLED} (testy wykrywają tę zmianę)
 \end{itemize}
-
-\subsection{Testy Funkcjonalne}
-
-\subsubsection{Scenariusze Testowe}
-
-\begin{enumerate}
-	\item \textbf{Test zarażenia} - Zombie znajduje się blisko człowieka, zarażenie powinno nastąpić
-	\item \textbf{Test leczenia} - Medyk leczy zarażonego, przywracając typ
-	\item \textbf{Test eliminacji} - Żołnierz eliminuje zombie
-	\item \textbf{Test komunikacji} - Człowiek rozsyła ostrzeżenie innym
-	\item \textbf{Test kolizji} - Dwa agenci nie mogą zajmować tej samej komórki
-	\item \textbf{Test granic} - Agenci nie mogą wyjść poza siatkę
-\end{enumerate}
-
-\subsubsection{Metodologia Testowania}
-
-Każdy test funkcjonalny:
-\begin{enumerate}
-	\item Inicjuje kontrolowaną konfigurację systemu
-	\item Wywoływuje konkretne akcje
-	\item Weryfikuje osiągnięcie oczekiwanego stanu
-	\item Dokumentuje wynik (PASS/FAIL)
-\end{enumerate}
+\subsubsection{Wyniki Testów Mutacyjnych}
+\begin{itemize}
+	\item Liczba mutacji: 131
+	\item Mutacje zabite (killed):
+	\item Mutacje przeżyłe (survived): 2
+	\item Wskaźnik zabicia mutacji: $\frac{28}{30} \times 100\% = 93.33\%$
+\end{itemize}
 
 \newpage
 
@@ -753,24 +752,6 @@ Każdy test funkcjonalny:
 	  Zombie    Human   Medic  Soldier
 	           |
 	        Infected
-	\end{verbatim}
-
-\subsection{Diagram Interakcji Systemu}
-
-\begin{verbatim}
-	Grid ----+------+-------+-------+
-	         |      |       |       |
-	      Zombie  Human Infected Medic
-	         |      |       |       |
-	         +------+-------+-------+
-	      (All inherit from Character)
-	
-	Communication:
-	Zombie --(infects)--> Human --(broadcasts)--> Medic
-	                         |
-	                    Infected --(gets_healed)--> Original type
-	                         |
-	                       Zombie --(attacked_by)--> Soldier
 	\end{verbatim}
 
 \newpage

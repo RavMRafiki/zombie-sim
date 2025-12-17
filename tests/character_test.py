@@ -311,6 +311,64 @@ class TestCharacterActions:
         character.process_signals()
         
         assert character.signals == []
+    def test_send_signal_uses_lowercase_data_key(self, mock_grid, character):
+        """Test that send_signal uses 'data' (not 'DATA') as the key in signal data"""
+        other_char = Mock()
+        other_char.x = character.x + 1
+        other_char.y = character.y
+        other_char.receive_signal = Mock()
+
+        mock_grid.characters = [character, other_char]
+
+        character.send_signal("test_signal", data={"foo": "bar"}, broadcast_range=3)
+
+        other_char.receive_signal.assert_called_once()
+        call_args = other_char.receive_signal.call_args
+        # The signal data dict should have a 'data' key, not 'DATA'
+        assert "data" in call_args[0][1]
+        assert "DATA" not in call_args[0][1]
+        assert call_args[0][1]["data"] == {"foo": "bar"}
+    def test_send_signal_default_broadcast_range_is_3(self, mock_grid, character):
+        """Test that send_signal uses default broadcast_range of 3, not 4"""
+        # Character at distance exactly 3 should receive signal with default range
+        in_range_char = Mock()
+        in_range_char.x = character.x + 3
+        in_range_char.y = character.y
+        in_range_char.receive_signal = Mock()
+        
+        # Character at distance exactly 4 should NOT receive signal with default range
+        out_of_range_char = Mock()
+        out_of_range_char.x = character.x + 4
+        out_of_range_char.y = character.y
+        out_of_range_char.receive_signal = Mock()
+        
+        mock_grid.characters = [character, in_range_char, out_of_range_char]
+        
+        # Call send_signal without specifying broadcast_range (uses default)
+        character.send_signal("test_signal")
+        
+        # Character at distance 3 should receive the signal
+        in_range_char.receive_signal.assert_called_once()
+        
+        # Character at distance 4 should NOT receive the signal
+        out_of_range_char.receive_signal.assert_not_called()
+    def test_send_signal_uses_lowercase_source_pos_key(self, mock_grid, character):
+        """Test that send_signal uses 'source_pos' (not 'SOURCE_POS') as the key in signal data"""
+        other_char = Mock()
+        other_char.x = character.x + 1
+        other_char.y = character.y
+        other_char.receive_signal = Mock()
+
+        mock_grid.characters = [character, other_char]
+
+        character.send_signal("test_signal", broadcast_range=3)
+
+        other_char.receive_signal.assert_called_once()
+        call_args = other_char.receive_signal.call_args
+        # The signal data dict should have a 'source_pos' key, not 'SOURCE_POS'
+        assert "source_pos" in call_args[0][1]
+        assert "SOURCE_POS" not in call_args[0][1]
+        assert call_args[0][1]["source_pos"] == (character.x, character.y)
 
 
 class TestCharacterUpdate:
@@ -521,7 +579,48 @@ class TestCharacterObservation:
         for i in range(1, 10):
             for j in range(1, 10):
                 assert observation[-1][i, j] == 7, f"Cell [{i},{j}] should be 7, got {observation[-1][i, j]}"
-
+    def test_get_observation_local_x_start_initialized_to_zero(self, character):
+        """Test that local_x_start is initialized to 0, not None"""
+        # Use a center position where x_start >= 0 (no adjustment needed)
+        character.x = 10
+        character.y = 10
+        
+        global_matrix = np.zeros((GRID_SIZE, GRID_SIZE))
+        global_matrix[10, 10] = 42
+        
+        observation = character.get_observation(global_matrix)
+        
+        # If local_x_start was None instead of 0, the slicing logic would fail
+        # Verify observation was computed correctly
+        assert observation.shape == (4, 11, 11)
+        # The value at center should be correctly copied
+        assert observation[-1][5, 5] == 42
+        # Check that the state_buffer contains the expected frames
+        assert isinstance(character.state_buffer, deque)
+        assert len(character.state_buffer) == 4
+        # The last frame should have the value 42 at the center
+        assert character.state_buffer[-1][5, 5] == 42
+    def test_get_observation_local_x_start_must_be_int_not_none(self, character):
+        """Test that local_x_start is initialized to int 0, not None"""
+        # Position character near left edge to trigger x_start < 0
+        character.x = 1
+        character.y = 10
+        
+        global_matrix = np.zeros((GRID_SIZE, GRID_SIZE))
+        global_matrix[10, 0:7] = np.array([100, 101, 102, 103, 104, 105, 106])
+        
+        # This should work without TypeError
+        observation = character.get_observation(global_matrix)
+        
+        # Verify the observation was computed correctly
+        assert observation.shape == (4, 11, 11)
+        
+        # Verify data was correctly placed (local_x_start adjustment worked)
+        # With proper local_x_start=4 adjustment, data from global[10,0:7] 
+        # should appear at local positions [5, 4:11]
+        assert observation[-1][5, 4] == 100  # global[10, 0]
+        assert observation[-1][5, 5] == 101  # global[10, 1]
+        print(observation[-1])
 
 class TestCharacterSurrounding:
     """Tests for getting surrounding characters"""
@@ -593,8 +692,44 @@ class TestCharacterSurrounding:
         assert len(nearby) == 1
         assert in_range in nearby
         assert out_of_range not in nearby
-
-
+    def test_get_observation_boundary_condition_uses_greater_than_not_gte(self, character):
+        """Test that boundary check uses > not >= to catch mutation"""
+        # Position character such that y_end equals GRID_SIZE exactly
+        # y_end = y - 5 + 5 + 1 = y + 1
+        # So we need y + 1 = GRID_SIZE, therefore y = GRID_SIZE - 1
+        character.x = 10
+        character.y = GRID_SIZE - 6  # So y_end = GRID_SIZE - 6 + 5 + 1 = GRID_SIZE
+        
+        global_matrix = np.zeros((GRID_SIZE, GRID_SIZE))
+        # Fill rows 5 through GRID_SIZE-1 with distinctive values
+        # These should be visible in the observation
+        global_matrix[5:GRID_SIZE, 5:16] = 77
+        
+        observation = character.get_observation(global_matrix)
+        
+        # The character is at y = GRID_SIZE - 6
+        # In the 11x11 view centered on character:
+        # - Center is at local [5, 5]
+        # - Character's y position maps to local row 5
+        # - Row below character (y = GRID_SIZE - 5) maps to local row 6
+        # - Row y = GRID_SIZE - 1 maps to local row 10
+        
+        # All rows from global y=5 to y=GRID_SIZE-1 should have value 77
+        # These map to local rows in the observation
+        # Verify some of the visible data
+        assert observation[-1][10, 5] == 77  # Bottom of view should have data
+        
+        # Similarly for x_end == GRID_SIZE
+        character.x = GRID_SIZE - 6  # So x_end = GRID_SIZE - 6 + 5 + 1 = GRID_SIZE
+        character.y = 10
+        
+        global_matrix = np.zeros((GRID_SIZE, GRID_SIZE))
+        global_matrix[5:16, 5:GRID_SIZE] = 88
+        
+        observation = character.get_observation(global_matrix)
+        
+        # Verify the right boundary has data (not over-adjusted)
+        assert observation[-1][5, 10] == 88  # Right side of view should have data
 class TestCharacterDrawing:
     """Tests for Character drawing"""
     
