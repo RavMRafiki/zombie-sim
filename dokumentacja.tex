@@ -24,6 +24,7 @@
 \definecolor{blue}{rgb}{0,0,0.6}
 \definecolor{green}{rgb}{0,0.8,0}
 \definecolor{cyan}{rgb}{0.0,0.6,0.6}
+\definecolor{orange}{rgb}{1.0,0.5,0.0}
 
 \lstset{
 	language=csh,
@@ -118,7 +119,7 @@ symulacji epidemiologicznej, taki system umożliwia:
 
 \section{Opis Programu}
 
-\subsection{Opis dla Klienta}
+\subsection{Opis dla Użytkownika}
 System symuluje wybuch epidemii zombie w zamkniętym środowisku. Użytkownik
 obserwuje w czasie rzeczywistym:
 \begin{itemize}
@@ -132,8 +133,8 @@ obserwuje w czasie rzeczywistym:
 \subsection{Opis Szczegółowy}
 Symulacja zostaje zainicjalizowana z domyślnymi parametrami:
 \begin{itemize}
-	\item Rozmiar siatki: 256x256 komórek
-	\item Rozdzielczość wyświetlania: 4 piksele na komórkę
+	\item Rozmiar siatki: 128x128 komórek
+	\item Rozdzielczość wyświetlania: 6 pikseli na komórkę
 	\item Częstotliwość aktualizacji: 100ms między kolejnymi ruchami agentów
 	\item Liczba postaci początkowych: 40 zombie, 60 ludzi, 0 zarażonych, 20 medyków, 20
 	      żołnierzy
@@ -143,14 +144,18 @@ Każda postać ma przypisane:
 \begin{itemize}
 	\item Pozycję (x, y) na siatce
 	\item Kolor reprezentujący typ
-	\item Logikę comportamentu specyficzną dla typu
+	\item Logikę działania specyficzną dla jej typu postaci
 	\item Bufor stanu 4 ramek o wymiarach 11x11 dla współpracy z DQN
+	\item Listę sygnałów odebranych od innych postaci
 \end{itemize}
 
 \subsection{Instrukcja Obsługi}
 
 \subsubsection{Uruchomienie Programu}
 \begin{enumerate}
+	\item Klonować/pobrać repozytorium projektu
+	\item Utworzyć wirtualne środowisko: \texttt{python -m venv .venv}
+	\item Aktywować środowisko: \texttt{source .venv/bin/activate}
 	\item Zainstalować zależności: \texttt{pip install -r requirements.txt}
 	\item Uruchomić program: \texttt{python main.py}
 	\item Program automatycznie inicjalizuje agentów DQN i tworzy siatkę z 40 zombie, 60
@@ -160,11 +165,11 @@ Każda postać ma przypisane:
 
 \subsubsection{Legenda Kolorów}
 \begin{itemize}
-	\item \textbf{Zielony} - Zombie (agressywne, zarażają ludzi)
-	\item \textbf{Niebieski} - Ludzie (defensywni, rozglaszają ostrzeżenia)
-	\item \textbf{Pomarańczowy} - Zarażeni (przejściowy stan przed zmianą w zombie)
-	\item \textbf{Biały} - Medycy (leczą zarażonych, przywracając ich do poprzedniego stanu)
-	\item \textbf{Żółty} - Żołnierze (eliminują zombie w bliskiej okolicy)
+	\item \textbf{\textcolor{green}{Zielony}} -- Zombie (agresywne, zarażają ludzi)
+	\item \textbf{\textcolor{blue}{Niebieski}} -- Ludzie (defensywni, rozgłaszają ostrzeżenia)
+	\item \textbf{\textcolor{orange}{Pomarańczowy}} --~Zarażeni (przejściowy stan przed zmianą w zombie)
+	\item \textbf{\colorbox{black}{\textcolor{white}{Biały}}} -- Medycy (leczą zarażonych, przywracając ich do poprzedniego stanu)
+	\item \textbf{\textcolor{yellow}{Żółty}} -- Żołnierze (eliminują zombie w bliskiej okolicy)
 \end{itemize}
 
 \subsubsection{Wizualizacja Wyników}
@@ -172,32 +177,32 @@ Na górze okna wyświetlany jest licznik aktualnych populacji każdego typu
 postaci w formacie: \texttt{Zombies: X | Humans: Y | Infected: Z | Medics: A |
 	Soldiers: B}
 
-\subsection{Instrukcja Wdrożenia}
+% \subsection{Instrukcja Wdrożenia}
 
-\subsubsection{Wymagania Systemowe}
-\begin{itemize}
-	\item Python 3.8+
-	\item Pygame 2.1.0+
-	\item PyTorch 1.10.0+ (dla modułu DQN)
-	\item NumPy 1.21.0+
-\end{itemize}
+% \subsubsection{Wymagania Systemowe}
+% \begin{itemize}
+% 	\item Python 3.8+
+% 	\item Pygame 2.1.0+
+% 	\item PyTorch 1.10.0+ (dla modułu DQN)
+% 	\item NumPy 1.21.0+
+% \end{itemize}
 
-\subsubsection{Kroki Wdrażania}
-\begin{enumerate}
-	\item Klonować/pobrać repozytorium projektu
-	\item Utworzyć wirtualne środowisko: \texttt{python -m venv .venv}
-	\item Aktywować środowisko: \texttt{source .venv/bin/activate}
-	\item Zainstalować pakiety: \texttt{pip install -r requirements.txt}
-	\item Uruchomić program: \texttt{python main.py}
-\end{enumerate}
+% \subsubsection{Kroki Wdrażania}
+% \begin{enumerate}
+% \item Klonować/pobrać repozytorium projektu
+% \item Utworzyć wirtualne środowisko: \texttt{python -m venv .venv}
+% \item Aktywować środowisko: \texttt{source .venv/bin/activate}
+% \item Zainstalować pakiety: \texttt{pip install -r requirements.txt}
+% \item Uruchomić program: \texttt{python main.py}
+% \end{enumerate}
 
-\subsection{Dodatkowe Informacje}
-\begin{itemize}
-	\item Projekt wykorzystuje bibliotekę Pygame do renderowania 2D
-	\item DQN (Deep Q-Network) jest zaimplementowany dla potencjalnego uczenia agentów
-	\item Testy jednostkowe dostępne w katalogu \texttt{tests/}
-	\item Mutacyjne testy dostępne w katalogu \texttt{mutants/}
-\end{itemize}
+% \subsection{Dodatkowe Informacje}
+% \begin{itemize}
+% 	\item Projekt wykorzystuje bibliotekę Pygame do renderowania 2D
+% 	\item DQN (Deep Q-Network) jest zaimplementowany dla potencjalnego uczenia agentów
+% 	\item Testy jednostkowe dostępne w katalogu \texttt{tests/}
+% 	\item Mutacyjne testy dostępne w katalogu \texttt{mutants/}
+% \end{itemize}
 
 \newpage
 % ========== CZĘŚĆ II: MODEL MATEMATYCZNY I ALGORYTMY ==========
@@ -873,7 +878,7 @@ if not occupied:
 
 \newpage
 
-\section{Diagram UML}
+\section{Klasy}
 
 \subsection{Hierarchia Klas}
 
@@ -883,36 +888,161 @@ if not occupied:
 	Character (abstract)
 	  - Zombie
 	  - Human
-	    - Medic
-	    - Soldier
+	  - Medic
+	  - Soldier
 	  - Infected
 	
 	Grid
-	  - characters: List[Character]
 	\end{verbatim}
 
 \subsection{Diagram Klas Głównych}
 
 \begin{verbatim}
-	+-Character---------+
-	| - x: int          |
-	| - y: int          |
-	| - grid: Grid      |
-	| - state_buffer    |
-	| - color: RGB      |
-	|+move()            |
-	|+act()             |
-	|+get_observation() |
-	|+draw(screen)      |
-	+-------------------+
-	         ^
-	         |
-	    +----+-----+-------+
-	    |          |       |
-	  Zombie    Human   Medic  Soldier
-	           |
-	        Infected
-	\end{verbatim}
+	+------------------------------------------+
+	|      Character (abstract)                |
+	+------------------------------------------+
+	| Attributes:                              |
+	|  - x: int                                |
+	|  - y: int                                |
+	|  - grid: Grid                            |
+	|  - is_alive: bool                        |
+	|  - state_buffer: deque[np.array]         |
+	|  - signals: list                         |
+	|  - char_type_name: str                   |
+	|  - color: (r,g,b)                        |
+	|  - move_speed: int                       |
+	+------------------------------------------+
+	| Methods:                                 |
+	|  + __init__(x, y, grid)                  |
+	|  + update(current_time): void            |
+	|  + move(action_code): bool               |
+	|  + act(): void                           |
+	|  + process_signals(): void               |
+	|  + send_signal(type, range, data)        |
+	|  + receive_signal(type, data): void      |
+	|  + draw(screen, offset_y): void          |
+	|  + get_type_name(): str                  |
+	|  + get_surrounding_characters(r): list   |
+	|  + get_observation(matrix): np.array     |
+	|  + get_target_vector(): np.array         |
+	+------------------------------------------+
+\end{verbatim}
+\begin{verbatim}
+
+	+------------------------------------+
+	|           Zombie                   |
+	+------------------------------------+
+	| Attributes:                        |
+	|  - INFECTION_RANGE: float          |
+	|  - INFECTION_COOLDOWN: int         |
+	|  - SIGHT_RANGE: float              |
+	|  - SIEGE_RANGE: float              |
+	|  - BROADCAST_RANGE: float          |
+	|  - last_infection_time: int        |
+	|  - prev_dist: float                |
+	+------------------------------------+
+	| Methods:                           |
+	|  + __init__(x, y, grid)            |
+	|  + get_target_vector(): list       |
+	|  + act(): void                     |
+	|  + broadcast_prey_spotted(pos)     |
+	|  + infect_character(char): bool    |
+	+------------------------------------+
+\end{verbatim}
+\begin{verbatim}
+	+------------------------------------+
+	|           Human                    |
+	+------------------------------------+
+	| Attributes:                        |
+	|  - THREAT_DETECTION_RANGE: float   |
+	|  - THREAT_BROADCAST_RANGE: float   |
+	|  - prev_min_dist: float            |
+	+------------------------------------+
+	| Methods:                           |
+	|  + __init__(x, y, grid)            |
+	|  + get_target_vector(): list       |
+	|  + act(): void                     |
+	|  + broadcast_threat_info(threats)  |
+	|  + get_infected(): void            |
+	|  + broadcast_help_request(): void  |
+	+------------------------------------+
+\end{verbatim}
+\begin{verbatim}
+	+------------------------------------+
+	|           Medic                    |
+	+------------------------------------+
+	| Attributes:                        |
+	|  - SEARCH_RANGE: float             |
+	|  - HEALING_RANGE: float            |
+	|  - HEALING_COOLDOWN: int           |
+	|  - HEAR_RANGE: float               |
+	|  - target: Character               |
+	|  - last_heal_time: int             |
+	+------------------------------------+
+	| Methods:                           |
+	|  + __init__(x, y, grid)            |
+	|  + get_autonomous_action(): int    |
+	|  + find_best_target(): Character   |
+	|  + broadcast_intent(): void        |
+	|  + check_competition(): bool       |
+	|  + act(): void                     |
+	|  + heal_target(): bool             |
+	|  + broadcast_heal(char, type)      |
+	|  + get_infected(): void            |
+	+------------------------------------+
+\end{verbatim}
+\begin{verbatim}
+	+------------------------------------+
+	|           Soldier                  |
+	+------------------------------------+
+	| Attributes:                        |
+	|  - SIGHT_RANGE: float              |
+	|  - ATTACK_RANGE: float             |
+	|  - ATTACK_COOLDOWN: int            |
+	|  - KILL_REWARD: float              |
+	|  - BROADCAST_RANGE: float          |
+	|  - last_attack_time: int           |
+	+------------------------------------+
+	| Methods:                           |
+	|  + __init__(x, y, grid)            |
+	|  + get_target_vector(): list       |
+	|  + act(): void                     |
+	|  + broadcast_kill(pos): void       |
+	|  + get_infected(): void            |
+	+------------------------------------+
+\end{verbatim}
+\begin{verbatim}
+	+------------------------------------+
+	|           Infected                 |
+	+------------------------------------+
+	| Attributes:                        |
+	|  - infection_start_time: int       |
+	|  - INFECTION_DURATION: int         |
+	|  - previous_type: str              |
+	|  - transform_time: int             |
+	+------------------------------------+
+	| Methods:                           |
+	|  + __init__(x, y, grid, prev_type) |
+	|  + act(): void                     |
+	|  + broadcast_infected_status()     |
+	|  + transform_to_zombie(): void     |
+	+------------------------------------+
+\end{verbatim}
+\begin{verbatim}
+	+------------------------------------+
+	|            Grid                    |
+	+------------------------------------+
+	| Attributes:                        |
+	|  - characters: List[Character]     |
+	+------------------------------------+
+	| Methods:                           |
+	|  + __init__(num_z, num_h, ...)     |
+	|  + update(): void                  |
+	|  + draw(screen, offset_y): void    |
+	|  + get_stats(): tuple              |
+	|  + get_global_map_matrix(): array  |
+	+------------------------------------+
+\end{verbatim}
 
 \newpage
 
@@ -970,45 +1100,6 @@ Dla $n=100$: $M_{total} \approx 100 \times 4\text{ KB} + 500\text{ KB} +
 	2\text{ MB} \approx 2.9\text{ MB}$
 
 \textbf{Wniosek:} Footprint pamięciowy jest znikomy dla współczesnych komputerów.
-
-\subsection{Optymalizacje}
-
-\subsubsection{Spatial Hashing}
-
-Obecnie $O(n^2)$ jest nieuniknione ze względu na potrzebę sprawdzania
-wszystkich agentów. Możliwa optymalizacja:
-
-\textbf{Spatial Grid Hash Map:}
-\begin{itemize}
-	\item Podzielić siatkę na komórki (np. 16×16)
-	\item Każdy agent przechowywać w komórce, w której się znajduje
-	\item Podczas sprawdzania kolizji, sprawdzać tylko agentów w sąsiadujących komórkach
-	\item Złożoność ulepszona do: $O(n \cdot k)$ gdzie $k$ = średnia liczba agentów w
-	      sąsiadujących komórkach ($k \ll n$)
-\end{itemize}
-
-\subsubsection{Lazy Evaluation}
-
-\begin{itemize}
-	\item Macierz obserwacji generować tylko gdy będzie potrzebna (dla agentów z DQN)
-	\item Sygnały buforować i przetwarzać grupowo
-\end{itemize}
-
-\subsection{Asymptotyczna Analiza}
-
-\begin{table}[H]
-	\centering
-	\begin{tabular}{|c|c|c|c|}
-		\hline
-		\textbf{Operacja} & \textbf{Złożoność} & \textbf{Dla n=100} & \textbf{Dla n=1000} \\
-		\hline
-		Ruch agenta       & $O(n)$             & 100 ops            & 1,000 ops           \\
-		Act (szukanie)    & $O(n)$             & 100 ops            & 1,000 ops           \\
-		Pełna klatka      & $O(n^2)$           & 10,000 ops         & 1,000,000 ops       \\
-		\hline
-	\end{tabular}
-	\caption{Analiza złożoności dla różnych rozmiarów systemu}
-\end{table}
 
 \newpage
 
@@ -1209,13 +1300,14 @@ def broadcast_threat_info(self, threats):
 	\item [\checkmark] Interfejs graficzny w Pygame
 \end{enumerate}
 
-\subsection{Zaobserwowane Zachowania Emergentne}
+\subsection{Zaobserwowane Zachowania}
 
 \begin{itemize}
 	\item Zombie naturalnie formują "swarmy" w kierunku gromad ludzi
-	\item Ludzie tworzą grupy ochronne wokół medyków
-	\item Oszacowana dynamika populacji odpowiada modelom epidemiologicznym (SIR)
 	\item Żołnierze efektywnie redukują populację zombie w lokalnych regionach
+	\item Medycy opóźniają rozprzestrzenianie się epidemii, ale nie mogą jej całkowicie
+	      powstrzymać
+	\item Ludzie wykazują zachowania ucieczki i współpracy
 \end{itemize}
 
 \subsection{Możliwe Rozszerzenia}
@@ -1224,8 +1316,6 @@ def broadcast_threat_info(self, threats):
 	\item \textbf{Pełne uczenie DQN} - Wytrenować sieci neuronowe do optymalnego sterowania agentami
 	\item \textbf{Spatial Hashing} - Optymalizacja do $O(n \log n)$ dla większych systemów
 	\item \textbf{Różne środowiska} - Przeszkody, budynki, strefy bezpieczne
-	\item \textbf{Genetyczne Algorytmy} - Ewolucja parametrów behawioralnych agentów
-	\item \textbf{Analiza Sieci Społecznej} - Modelowanie połączeń między agentami
 	\item \textbf{Różne patogeny} - Zmienność infekcji, mutacje zombie
 \end{enumerate}
 

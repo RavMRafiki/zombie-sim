@@ -1,7 +1,7 @@
 """Game constants and configuration"""
 
 GRID_SIZE = 128
-CELL_SIZE = 4
+CELL_SIZE = 6
 WINDOW_SIZE = GRID_SIZE * CELL_SIZE
 MOVE_INTERVAL = 100  # milliseconds
 FPS = 60
