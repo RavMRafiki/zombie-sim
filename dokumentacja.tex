@@ -1141,63 +1141,6 @@ if not occupied:
 
 \newpage
 
-\section{Analiza Złożoności Obliczeniowej}
-
-\subsection{Złożoność Czasowa}
-
-\subsubsection{Operacje na Agentach}
-
-Główne operacje wykonywane na każdego agenta (dla każdej klatki):
-
-\begin{itemize}
-	\item \textbf{Ruch:} $O(n)$ - sprawdzenie kolizji z wszystkimi agentami
-	\item \textbf{Obserwacja:} $O(1)$ - generowanie matrycy 11x11 (stały rozmiar)
-	\item \textbf{Działanie (act):} $O(n)$ - skanowanie w poszukiwaniu celów/zagrożeń
-	\item \textbf{Komunikacja:} $O(n)$ - rozsyłanie sygnałów do agentów w zasięgu
-\end{itemize}
-
-gdzie $n$ = liczba agentów w systemie
-
-\subsubsection{Pętla Główna Gry}
-
-Każda klatka wykonuje:
-\begin{align}
-	O_{frame} & = O(n \cdot O_{agent}) \\
-	          & = O(n) \cdot O(n)      \\
-	          & = O(n^2)
-\end{align}
-
-Dla domyślnej konfiguracji: - $n = 100$ agentów (40 zombie + 60 ludzi) -
-$O_{frame} = O(100^2) = 10,000$ operacji podstawowych na klatkę - FPS = 60 →
-$60 \times 10,000 = 600,000$ operacji/sekundę
-
-\textbf{Wniosek:} Złożoność $O(n^2)$ jest akceptowalna dla zakresu liczby agentów (do ~200).
-
-\subsection{Złożoność Pamięciowa}
-
-\subsubsection{Pamięć na Agenta}
-
-\begin{itemize}
-	\item \textbf{Atrybuty proste:} $x, y, color, move\_speed$ = 4 × 32-bit = 16 bajtów
-	\item \textbf{Referencja do gridu:} 1 wskaźnik = 8 bajtów
-	\item \textbf{State buffer:} 4 × (11 × 11) floats = 4 × 121 × 8 = 3,872 bajtów
-	\item \textbf{Lista sygnałów:} średnio 5 sygnałów × 32 bajty = 160 bajtów
-	\item \textbf{Inne atrybuty:} ~100 bajtów
-\end{itemize}
-
-\textbf{Razem na agenta:} $\approx 4,200$ bajtów $\approx 4$ KB
-
-\subsubsection{Całkowita Pamięć Systemu}
-
-$$M_{total} = n \cdot 4\text{ KB} + M_{grid} + M_{pygame}$$
-
-Dla $n=100$: $M_{total} \approx 100 \times 4\text{ KB} + 500\text{ KB} +
-	2\text{ MB} \approx 2.9\text{ MB}$
-
-\textbf{Wniosek:} Footprint pamięciowy jest znikomy dla współczesnych komputerów.
-
-\newpage
-
 \section{Wyniki Eksperymentów i Testy Porównawcze}
 
 \subsection{Testy Wydajnościowe}
