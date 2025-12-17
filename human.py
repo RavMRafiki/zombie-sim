@@ -17,7 +17,6 @@ class Human(Character):
     
     def __init__(self, x, y, grid=None):
         super().__init__(x, y, grid)
-        self.is_alive = True
         self.prev_min_dist = float('inf')
     
     def act(self):
@@ -94,7 +93,7 @@ class Human(Character):
         """Broadcast threat information to nearby characters"""
         if not self.grid:
             return
-        
+
         for character in self.grid.characters:
             if character is self:
                 continue
@@ -114,4 +113,4 @@ class Human(Character):
     def get_infected(self):
         """Metoda wywoływana przez Zombie, gdy infekcja się uda."""
         self.is_alive = False
-        print(f"Człowiek {id(self)} został zarażony! Kara -50")
+        print(f"Człowiek {id(self)} został zarażony! Kara -10")

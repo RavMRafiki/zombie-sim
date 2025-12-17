@@ -6,6 +6,7 @@ from character import Character
 from constants import MOVE_INTERVAL
 
 
+
 class Zombie(Character):
     """Zombie character - moves aggressively"""
     
@@ -17,7 +18,7 @@ class Zombie(Character):
     
     def __init__(self, x, y, grid=None):
         super().__init__(x, y, grid)
-        self.last_infection_time = 5000
+        self.last_infection_time = 0
         self.prev_dist = 0
     
     def act(self):
@@ -30,10 +31,12 @@ class Zombie(Character):
 
         min_dist = float('inf')
         from human import Human # Importy
+        from medic import Medic
+        from soldier import Soldier
         
         # Znajdź najbliższego człowieka
         for char in self.grid.characters:
-            if isinstance(char, Human): # (Dla uproszczenia pomijam Medic/Soldier w tym przykładzie)
+            if isinstance(char, Human) or isinstance(char, Medic) or isinstance(char, Soldier):
                 dist = math.sqrt((self.x - char.x)**2 + (self.y - char.y)**2)
                 if dist < min_dist:
                     min_dist = dist
@@ -59,12 +62,6 @@ class Zombie(Character):
         # Check if infection is off cooldown
         if current_time - self.last_infection_time < self.INFECTION_COOLDOWN:
             return step_reward
-        
-        # Import here to avoid circular imports
-        
-        from medic import Medic
-        from soldier import Soldier
-        from infected import Infected
         
         # Check for infectable characters in range
         for character in self.grid.characters:
@@ -105,11 +102,13 @@ class Zombie(Character):
         closest_human = None
         min_dist = float('inf')
         from human import Human
+        from medic import Medic
+        from soldier import Soldier
         import numpy as np
         
         # Znajdź najbliższego człowieka (używając globalnej listy z gridu)
         for char in self.grid.characters:
-            if isinstance(char, Human): # i ewentualnie Medic/Soldier
+            if isinstance(char, Human) or isinstance(char, Soldier) or isinstance(char, Medic): 
                 dist = (self.x - char.x)**2 + (self.y - char.y)**2 # Bez pierwiastka szybciej
                 if dist < min_dist:
                     min_dist = dist
