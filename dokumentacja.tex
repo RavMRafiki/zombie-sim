@@ -660,33 +660,27 @@ agentów. Definiuje wspólne zachowania i atrybuty.
 
 \subsubsection{Metody Kluczowe}
 
-\textbf{update(current\_time)}
-Metoda wywoływana każdą klatkę. Sprawdza, czy upłynął czas wymagany do ruchu, i jeśli tak, wywołuje \texttt{move()}, \texttt{act()} i \texttt{process\_signals()}.
-
-\begin{lstlisting}[language=Python]
-def update(self, current_time):
-    if current_time - self.last_move_time >= self.move_speed:
-        self.move()
-        self.act()
-        self.process_signals()
-        self.last_move_time = current_time
-	\end{lstlisting}
-
 \textbf{move(action\_code)}
-Przemieszcza agenta o jeden krok w kierunku określonym przez \texttt{action\_code}. Sprawdza kolizje i granice siatki.
+Przemieszcza agenta o jeden krok w kierunku określonym przez \texttt{action\_code}. Zwraca \texttt{True} jeśli ruch się powiódł, \texttt{False} jeśli napotkano przeszkodę lub granicę siatki.
 
 \begin{lstlisting}[language=Python]
 def move(self, action_code=None):
     dx, dy = 0, 0
-    if action_code == 0: dy = -1      # Up
-    elif action_code == 1: dy = 1     # Down
-    elif action_code == 2: dx = -1    # Left
-    elif action_code == 3: dx = 1     # Right
+    if action_code == 0: dy = -1      # Gora
+    elif action_code == 1: dy = 1     # Dol
+    elif action_code == 2: dx = -1    # Lewo
+    elif action_code == 3: dx = 1     # Prawo
+    else: pass                         # Czekaj (brak ruchu)
     
-    new_x = max(0, min(GRID_SIZE - 1, self.x + dx))
-    new_y = max(0, min(GRID_SIZE - 1, self.y + dy))
+    new_x = self.x + dx
+    new_y = self.y + dy
     
-    # Check collision with other characters
+    # Sprawdzenie granic siatki
+    if new_x < 0 or new_x >= GRID_SIZE or \
+       new_y < 0 or new_y >= GRID_SIZE:
+        return False
+    
+    # Sprawdzenie kolizji z innymi postaciami
     occupied = False
     if self.grid:
         for character in self.grid.characters:
@@ -703,79 +697,174 @@ def move(self, action_code=None):
     return False
 	\end{lstlisting}
 
-\textbf{get\_observation()}
-Generuje macierz obserwacji lokalnego otoczenia o wymiarach 11x11.
+\textbf{act()}
+Metoda abstrakcyjna wykonywana każdy krok. Powinna być zaimplementowana w klasach pochodnych.
+
+\textbf{process\_signals()}
+Usuwa przestarzałe sygnały (starsze niż \texttt{SIGNAL\_MEMORY\_TIME = 10000} ms).
+
+\textbf{send\_signal(signal\_type, broadcast\_range, data)}
+Wysyła sygnał do pobliskich postaci w zasięgu \texttt{broadcast\_range}. Parametr \texttt{data} zawiera dodatkowe informacje przekazywane wraz z sygnałem.
+
+\textbf{receive\_signal(signal\_type, signal\_data)}
+Odbiera sygnał od innej postaci i dodaje go do listy \texttt{signals}.
+
+\textbf{draw(screen, offset\_y)}
+Rysuje postać na ekranie w postaci kwadratu o rozmiarze \texttt{CELL\_SIZE}.
+
+\textbf{get\_observation(global\_matrix)}
+Wyciąga wycinek 11x11 wokół postaci z globalnej macierzy i aktualizuje stos 4 klatek (Frame Stacking) dla sieci neuronowej. Granice mapy są reprezentowane jako ściany (wartość 1).
 
 \begin{lstlisting}[language=Python]
-def get_observation(self):
-    """Generate 11x11 observation around character"""
-    obs = np.zeros((11, 11))
-    view_range = 5  # 5 cells in each direction
+def get_observation(self, global_matrix):
+    """
+    Extract 11x11 slice around character and update
+    4-frame stack for neural network input.
+    Args:
+        global_matrix: Full grid state matrix
+    Returns:
+        np.array shape (4, 11, 11) - stacked frames
+    """
+    view_size = 11
+    radius = view_size // 2
     
-    for dx in range(-view_range, view_range + 1):
-        for dy in range(-view_range, view_range + 1):
-            world_x = self.x + dx
-            world_y = self.y + dy
-            
-            if 0 <= world_x < GRID_SIZE and \
-               0 <= world_y < GRID_SIZE:
-                # Check what's at this position
-                local_x = dx + view_range
-                local_y = dy + view_range
-                obs[local_y, local_x] = \
-                    self.grid.global_map[world_y, world_x]
+    # Initialize with walls (1) at boundaries
+    local_view = np.ones((view_size, view_size))
     
-    return obs
+    # Calculate slice bounds with boundary checks
+    x_start = self.x - radius
+    x_end = self.x + radius + 1
+    y_start = self.y - radius
+    y_end = self.y + radius + 1
+    
+    # Calculate indices for pasting into local view
+    local_x_start = 0
+    local_x_end = view_size
+    local_y_start = 0
+    local_y_end = view_size
+    
+    # Clip to map boundaries
+    if x_start < 0:
+        local_x_start = -x_start
+        x_start = 0
+    if y_start < 0:
+        local_y_start = -y_start
+        y_start = 0
+    if x_end > GRID_SIZE:
+        local_x_end = view_size - (x_end - GRID_SIZE)
+        x_end = GRID_SIZE
+    if y_end > GRID_SIZE:
+        local_y_end = view_size - (y_end - GRID_SIZE)
+        y_end = GRID_SIZE
+    
+    # Paste global matrix slice into local view
+    if x_end > x_start and y_end > y_start:
+        local_view[local_y_start:local_y_end,
+                   local_x_start:local_x_end] = \
+            global_matrix[y_start:y_end, x_start:x_end]
+    
+    # Frame stacking - new frame added, old one removed
+    self.state_buffer.append(local_view)
+    
+    # Return as numpy array (4, 11, 11)
+    return np.array(self.state_buffer)
 	\end{lstlisting}
+
+\textbf{get\_target\_vector()}
+Zwraca wektor cech charakteru (np. wektor do najbliższego celu). Domyślnie zwraca wektor zerowy, powinna być zaimplementowana w klasach pochodnych.
 
 \subsection{Klasa Zombie}
 
 \subsubsection{Opis}
-Zombie są głównymi antagonistami. Aktywnie szukają i zarażają ludzi, otrzymując
-nagrody za zbliżanie się i zarażanie.
+Zombie są głównymi antagonistami. Działają w oparciu o logikę roju (Swarm
+Intelligence), wykorzystując zarówno wzrok, jak i komunikację radiową do
+lokalizacji ofiar. Kluczową cechą jest mechanizm \textit{Oblężenia} - gdy
+zombie jest blisko ofiary (w zasięgu \texttt{SIEGE\_RANGE = 2.5}), nie jest
+karane za brak postępu, ale nagradzane za samą presję na ofiarę.
 
-\subsubsection{Zachowanie act()}
+\subsubsection{Parametry Konfiguracyjne}
+\begin{itemize}
+	\item \texttt{INFECTION\_RANGE = 1.99} - Dystans, w którym zombie może zarazić
+	\item \texttt{INFECTION\_COOLDOWN = 5000} - Czas (ms) między kolejnymi zarażeniami
+	\item \texttt{SIGHT\_RANGE = 7.2} - Zasięg wzroku (krótki)
+	\item \texttt{SIEGE\_RANGE = 2.5} - Zasięg ``Oblężenia'' (tłok przy ofierze)
+	\item \texttt{BROADCAST\_RANGE = 65.0} - Zasięg ``jęku'' (sygnalizowanie innym zombie)
+	\item \texttt{SIGNAL\_MEMORY\_TIME = 3000} - Pamięć sygnałów (ms)
+\end{itemize}
+
+\subsubsection{Metody}
+
+\textbf{get\_target\_vector()}
+Zwraca znormalizowany wektor $[dx, dy]$ wskazujący cel. Implementacja logiki roju:
+
+\begin{enumerate}
+	\item \textbf{Wzrok (priorytet główny):} Skanuje wszystkie \texttt{(Human, Medic, Soldier)} w zasięgu \texttt{SIGHT\_RANGE}. Jeśli znaleziona ofiara, wysyła broadcast ``prey\_spotted''.
+	\item \textbf{Słuch (rezerwowy):} Jeśli wzrok zawiódł, sprawdza sygnały od innych zombie i kieruje się do ostatniej znanej pozycji ofiary.
+	\item \textbf{Brak cel:} Zwraca wektor zerowy $[0, 0]$.
+\end{enumerate}
+
+\textbf{act()}
+Główna metoda zachowania zombie - oblicza nagrodę i zarażenie. Logika:
+
 \begin{lstlisting}[language=Python]
 def act(self):
-    """Perform aggressive behavior - infect nearby humans"""
-    if not self.grid:
+    """Zombies perform aggressive behavior - infect nearby humans"""
+    if not self.grid: 
         return 0
     
     current_time = pygame.time.get_ticks()
-    step_reward = 0
+    step_reward = 0 
     
-    # Find closest human
+    # 1. Znajdowanie celu (wzrok + sluch)
+    target_pos = None
     min_dist = float('inf')
-    for char in self.grid.characters:
-        if isinstance(char, Human):
-            dist = math.sqrt((self.x - char.x)**2 + 
-                           (self.y - char.y)**2)
-            if dist < min_dist:
-                min_dist = dist
     
-    # Reward shaping: approach humans
+    for char in self.grid.characters:
+        if isinstance(char, (Human, Medic, Soldier)):
+            d = math.sqrt((self.x - char.x)**2 + (self.y - char.y)**2)
+            if d <= self.SIGHT_RANGE and d < min_dist:
+                min_dist = d
+                target_pos = (char.x, char.y)
+    
+    if not target_pos:
+        for signal in self.signals:
+            if signal['type'] == 'prey_spotted':
+                p_pos = signal['data']['prey_pos']
+                d = math.sqrt((self.x - p_pos[0])**2 + (self.y - p_pos[1])**2)
+                if d < min_dist:
+                    min_dist = d
+    
     if min_dist < float('inf'):
-        if min_dist < 5.0:  # VIEW_RANGE
-            step_reward += (5.0 - min_dist) * 0.2
-            
+        # Nagroda za zbliZanie sie
+        if min_dist < self.SIGHT_RANGE:
+            step_reward += (self.SIGHT_RANGE - min_dist) * 0.2 
+        
+        # STREFA OBLEGENIA (min_dist <= 2.5)
+        if min_dist <= self.SIEGE_RANGE:
+            step_reward += 0.5  # Nagroda za presje
+            # Brak kary za zly kierunek (zombie moze krazac szukajac luki)
+        
+        # STREFA POSCIGU (min_dist > 2.5)
+        else:
             if min_dist < self.prev_dist:
-                step_reward += 0.5
+                step_reward += 0.5  # ZbliZanie sie
             elif min_dist > self.prev_dist:
-                step_reward -= 0.5
+                step_reward -= 0.5  # Oddalanie sie
         
         self.prev_dist = min_dist
+    else:
+        self.prev_dist = float('inf')
     
-    # Infection logic
-    if current_time - self.last_infection_time >= \
-       self.INFECTION_COOLDOWN:
-        for character in self.grid.characters:
-            if isinstance(character, (Human, Medic, Soldier)):
-                distance = math.sqrt(
-                    (self.x - character.x)**2 + 
-                    (self.y - character.y)**2)
-                
-                if distance <= self.INFECTION_RANGE:
-                    self.infect_character(character)
+    if current_time - self.last_infection_time < self.INFECTION_COOLDOWN:
+        return step_reward
+    
+    for character in self.grid.characters:
+        if isinstance(character, (Human, Medic, Soldier)):
+            distance = math.sqrt((self.x - character.x)**2 + (self.y - character.y)**2)
+            
+            if distance <= self.INFECTION_RANGE:
+                success = self.infect_character(character)
+                if success:
                     step_reward += 10
                     self.last_infection_time = current_time
                     break
@@ -783,43 +872,207 @@ def act(self):
     return step_reward
 	\end{lstlisting}
 
+\textbf{broadcast\_prey\_spotted(prey\_pos)}
+Wysyła sygnał radiowy do wszystkich zombie w zasięgu \texttt{BROADCAST\_RANGE}, informując gdzie znaleziono ofiarę.
+
+\textbf{infect\_character(character)}
+Zamienia postać w ``Infected'' (stan przejściowy). Przekazuje typ poprzedniej postaci, żeby Medyk wiedział, kogo wskrzesić.
+
 \subsection{Klasa Human}
 
 \subsubsection{Opis}
-Ludzie są defensywni. Unikają zombie, rozglaszają ostrzeżenia i współpracują z
-innymi postaciami.
+Ludzie są agentami defensywnymi działającymi na podstawie instynktu
+przetrwania. Model cywila opiera się na psychologicznym balansowaniu między
+strachem a nadzieją. Sieć neuronowa uczy się unikać miejsc niebezpiecznych
+(wektor zagrożenia) i podążać w kierunku miejsc, gdzie żołnierze skutecznie
+walczą z zagrożeniem (wektor ratunku).
 
-\subsubsection{Zachowanie act()}
-Ludzie skanują otoczenie w poszukiwaniu zombie/zarażonych. Jeśli zostaną
-wykryte, rozglaszają informację o zagrożeniu w promieniu 7.0 komórek.
+\subsubsection{Parametry Konfiguracyjne}
+\begin{itemize}
+	\item \texttt{THREAT\_DETECTION\_RANGE = 4.0} - Zasięg wzroku (widzi zombie)
+	\item \texttt{THREAT\_BROADCAST\_RANGE = 45.0} - Zasięg krzyku ostrzegawczego
+\end{itemize}
+
+\subsubsection{Metody}
+
+\textbf{get\_target\_vector()}
+Zwraca wektor 4-elementowy \texttt{[threat\_dx, threat\_dy, soldier\_dx, soldier\_dy]} zawierający znormalizowane kierunki:
+
+\begin{enumerate}
+	\item \textbf{Wektor zagrożenia:} Wskazuje POZYCJĘ najblizszego zombie/zarażonego. Kombinacja wzroku (bliski zasięg) i słuchu (sygnały ``threat\_alert'').
+	\item \textbf{Wektor ratunku:} Wskazuje POZYCJĘ żołnierza aktywnie zabijającego zombie (z sygnałów ``zombies\_killed''). Gdy zerowy = brak ratunku.
+\end{enumerate}
+
+\textbf{act()}
+Główna metoda zachowania ludzi - oblicza nagrodę za przetrwanie i rozgłasza zagrożenie. Implementuje trzy główne kroki:
+
+\begin{enumerate}
+	\item \textbf{Skanowanie wizualne:} Przeszukuje wszystkich Zombie i Infected na siatce, aby znaleźć najbliższe zagrożenie. Jeśli zagrożenie jest w zasięgu \texttt{THREAT\_DETECTION\_RANGE}, dodaje je do listy ``threats'' (do przetworzenia jako broadcast).
+
+	\item \textbf{Rozgłaszanie zagrożenia:} Jeśli wykryto jakieś zagrożenia, wysyła sygnał ``threat\_alert'' do wszystkich pobliskich postaci w zasięgu \texttt{THREAT\_BROADCAST\_RANGE}.
+
+	\item \textbf{Obliczanie nagrody (Reward Shaping):}
+	      \begin{itemize}
+		      \item \textbf{Kara za bliskość:} Jeśli najblizsze zagrożenie jest bliższe niż \texttt{SAFE\_DISTANCE = 5.0}, otrzymuje karę paniki proporcjonalną do odległości: $(5.0 - dystans) \times 0.2$.
+		      \item \textbf{Nagroda za ucieczkę:} Jeśli dystans do zagrożenia zwiększył się od ostatniego kroku, otrzymuje nagrodę \texttt{+0.5}.
+		      \item \textbf{Kara za bieganie w stronę śmierci:} Jeśli dystans zmniejszył się (człowiek się zbliża do zombie), otrzymuje karę \texttt{-0.5}.
+		      \item \textbf{Nagroda za przeżycie:} Jeśli jest żywy, otrzymuje nagrodę \texttt{+0.1} za każdy krok przetrwania.
+	      \end{itemize}
+\end{enumerate}
+
+\textbf{broadcast\_threat\_info(threats)}
+Wysyła sygnał radiowy do wszystkich pobliskich postaci, informując o wykrytych zagrożeniach (zombie/zarażonych) w zasięgu \texttt{THREAT\_BROADCAST\_RANGE}.
+
+\textbf{get\_infected()}
+Metoda wywoływana przez Zombie podczas pomyślnej infekcji. Oznacza człowieka jako ``is\_alive = False'' i wysyła wołanie o pomoc medyka.
+
+\textbf{broadcast\_help\_request()}
+Wysyła sygnał ``medic\_requested'' do medyków w zasięgu, prosząc o leczenie.
 
 \subsection{Klasa Grid}
 
 \subsubsection{Opis}
 Klasa \texttt{Grid} zarządza całą symulacją. Przechowuje wszystkich agentów,
-obsługuje aktualizacje i renderowanie.
+obsługuje inicjalizację, renderowanie i udostępnia globalne mapy stanów dla
+sieci neuronowych. Głównie odpowiada za utrzymanie listy postaci i
+synchronizację stanu gry.
 
-\subsubsection{Metody Kluczowe}
+\subsubsection{Atrybuty}
+\begin{itemize}
+	\item \texttt{characters} - Lista wszystkich agentów (Zombie, Human, Infected, Medic, Soldier) na siatce
+\end{itemize}
 
-\textbf{get\_global\_map\_matrix()}
-Tworzy macierz 256x256 reprezentującą stan całej siatki.
+\subsubsection{Metody}
 
-\begin{lstlisting}[language=Python]
-def get_global_map_matrix(self):
-    """Create global map matrix"""
-    matrix = np.zeros((GRID_SIZE, GRID_SIZE))
-    
-    for char in self.characters:
-        if isinstance(char, (Zombie, Infected)):
-            matrix[char.y, char.x] = -1.0  # Enemies
-        elif isinstance(char, (Human, Medic, Soldier)):
-            matrix[char.y, char.x] = 0.5   # Allies
-    
-    return matrix
-	\end{lstlisting}
+\textbf{\_\_init\_\_(num\_zombies, num\_humans, num\_infected, num\_medics, num\_soldiers)}
+Inicjalizuje siatkę i losowo umieszcza wszystkich agentów na mapie o wymiarach \texttt{GRID\_SIZE x GRID\_SIZE} (zwykle 128x128). Każdy agent otrzymuje referencję do siatki w parametrze \texttt{self}.
+
+\textbf{draw(screen, offset\_y)}
+Rysuje siatkę (linie siatki) i wszystkich agentów na ekranie. Parametr \texttt{offset\_y} pozwala na przesunięcie w pionie (dla wyświetlenia paska statistyk na górze).
 
 \textbf{get\_stats()}
-Zwraca liczbę każdego typu postaci.
+Zwraca tuple zawierającą liczę każdego typu postaci w formacie:
+\texttt{(zombie\_count, human\_count, infected\_count, medic\_count, soldier\_count)}
+
+Liczy postaci sprawdzając ich typ z \texttt{isinstance()}, oddzielnie liczą się
+Medicy i Żołnierze (które dziedziczą z \texttt{Human}).
+
+\textbf{get\_global\_map\_matrix()}
+Tworzy macierz o wymiarach \texttt{GRID\_SIZE x GRID\_SIZE} reprezentującą stan całej siatki, gdzie:
+\begin{itemize}
+	\item \texttt{0.0} - Pusta komórka
+	\item \texttt{-1.0} - Zombie/Infected (wrogowie)
+	\item \texttt{0.5} - Human/Medic/Soldier (sojusznicy)
+\end{itemize}
+
+Ta macierz jest generowana raz na klatkę i przekazywana do sieci neuronowych
+agentów (poprzez metodę \texttt{get\_observation()}) do obliczania obserwacji
+lokalnych.
+
+\subsection{Klasa Infected}
+
+\subsubsection{Opis}
+Postać przejściowa reprezentująca osobę w trakcie transformacji z człowieka w
+zombie. Stanowi krytyczną część epidemiologii - dla medyków to cel do
+uratowania, dla zombie naturalną ostateczność. Infected porusza się wolniej niż
+normalni ludzie i wysyła sygnały o swojim zarażeniu.
+
+\subsubsection{Parametry Konfiguracyjne}
+\begin{itemize}
+	\item \texttt{TRANSFORMATION\_TIME = 10000} - Czas transformacji w zombie (ms)
+	\item \texttt{move\_speed = MOVE\_INTERVAL * 0.75} - Zwolniony ruch (75\% prędkości)
+	\item \texttt{BROADCAST\_RANGE = 5.0} - Zasięg sygnalizowania statusu
+	\item \texttt{previous\_type} - Typ poprzedniej postaci (do możliwego uleczenia)
+\end{itemize}
+
+\subsubsection{Metody}
+
+\textbf{act()}
+Wykonuje logikę transformacji: co klatkę rozgłasza status zarażenia, a po upłynięciu \texttt{TRANSFORMATION\_TIME} zmienia się w Zombie.
+
+\textbf{broadcast\_infected\_status()}
+Wysyła sygnał ``got infected'' do pobliskich postaci (medyków), zawierający czas pozostały do transformacji.
+
+\textbf{transform\_to\_zombie()}
+Zastępuje tę postać na liście \texttt{grid.characters} nową instancją Zombie na tej samej pozycji.
+
+\subsection{Klasa Medic}
+
+\subsubsection{Opis}
+Medycy są agentami kooperacyjnymi z deterministycznym zachowaniem (bez sieci
+neuronowej). Głównym celem jest znalezienie i wyleczenie Infected postaci.
+Używają algorytmu A* do planowania ścieżki i systemu radiowego (``claim \&
+yield'') do unikania duplikacji wysiłków - jeśli dwaj medycy biegnę do tego
+samego pacjenta, ten bliższy idzie, a dalszy szuka innego.
+
+\subsubsection{Parametry Konfiguracyjne}
+\begin{itemize}
+	\item \texttt{HEAL\_RANGE = 1.5} - Dystans, w którym może leczyć
+	\item \texttt{HEAL\_COOLDOWN = 5000} - Czas pomiędzy kolejnymi leczeniami (ms)
+	\item \texttt{VISION\_RANGE = 12.0} - Zasięg wzroku (do planowania ścieżki)
+	\item \texttt{BROADCAST\_RANGE = 40.0} - Zasięg radia medycznego
+\end{itemize}
+
+\subsubsection{Metody}
+
+\textbf{get\_autonomous\_action()}
+Główna logika decyzyjna medyka - wykonuje 5 kroków:
+\begin{enumerate}
+	\item Walidacja bieżącego celu (czy Infected jeszcze istnieje?)
+	\item Sprawdzenie konkurencji - jeśli inny medyk jest bliżej, ustępuje celu
+	\item Znalezienie najlepszego nowego celu (kombinacja sygnałów ``medic\_requested'' i
+	      wzroku)
+	\item Rozgłoszenie zamiaru poprzez radio (sygnał ``medic\_en\_route'')
+	\item Planowanie trasy algorytmem A* z przeszkodami widocznymi w zasięgu
+	      \texttt{VISION\_RANGE}
+\end{enumerate}
+
+Zwraca kod akcji (0-4): kierunek lub czekaj.
+
+\textbf{find\_best\_target()}
+Szuka Infected poprzez kombinację: słuchu (sygnały od ludzi) i wzroku (skan gridu). Wybiera najbliższego kandydata.
+
+\textbf{check\_competition()}
+Sprawdza sygnały ``medic\_en\_route'' od innych medyków - jeśli są bliżej do wspólnego celu, zwraca \texttt{True} (medyk powinien ustąpić).
+
+\textbf{broadcast\_intent()}
+Wysyła sygnał ``medic\_en\_route'' do innych medyków z dystansem do bieżącego celu (dla systemu ``yield'').
+
+\subsection{Klasa Soldier}
+
+\subsubsection{Opis}
+Żołnierze to specjaliści od walki. W przeciwieństwie do medyków, działają z siecią neuronową (DQN). Mają dwa tryby: aktywny atak na widoczne zombie i reagowanie na wezwania pomocy (``threat\_alert''). Ich nagroda jest zależna od stanu broni - mogą atakować tylko gdy cooldown minął.
+
+\subsubsection{Parametry Konfiguracyjne}
+\begin{itemize}
+	\item \texttt{KILL\_RANGE = 3.0} - Zasięg strzału
+	\item \texttt{KILL\_COOLDOWN = 5000} - Czas przeładowania broni (ms)
+	\item \texttt{SIGHT\_RANGE = 5.0} - Zasięg wzroku (priorytet nad sygnałami)
+	\item \texttt{BROADCAST\_RANGE = 50.0} - Zasięg radia (ogłaszanie fragów)
+\end{itemize}
+
+\subsubsection{Metody}
+
+\textbf{get\_target\_vector()}
+Zwraca wektor 3-elementowy \texttt{[dx, dy, weapon\_status]} zawierający:
+\begin{enumerate}
+	\item \textbf{Wektor celu:} Kombinacja wzroku (Zombie/Infected bliżej) i radia (sygnały ``threat\_alert'')
+	\item \textbf{Status broni:} Wartość 0.0-1.0 opisująca postęp przeładowania (0.0 = czeka, 1.0 = gotowa)
+\end{enumerate}
+
+\textbf{act()}
+Główna logika walki i nagród:
+\begin{itemize}
+	\item \textbf{Nagroda za przeżycie:} +0.5 za każdy krok przy życiu
+	\item \textbf{Strzał:} Jeśli cel w zasięgu \texttt{KILL\_RANGE} i cooldown minął, eliminuje go i otrzymuje +10.0
+	\item \textbf{Reward Shaping:} Nagroda za zbliżanie się do celu tylko gdy broń jest gotowa (80\%+ stanu), kara za oddalanie się
+\end{itemize}
+
+\textbf{broadcast\_kill(kill\_pos)}
+Wysyła sygnał ``zombies\_killed'' do pobliskich postaci (dla ludzi, aby wiedzieli gdzie jest bezpieczne sojuszników).
+
+\textbf{get\_infected()}
+Metoda wywoływana przez Zombie podczas zainfekowania. Oznacza żołnierza jako ``is\_alive = False'' i ewentualnie wołą medyka.
 
 \subsection{Główna Pętla Gry}
 
