@@ -1207,17 +1207,17 @@ Dla $n=100$: $M_{total} \approx 100 \times 4\text{ KB} + 500\text{ KB} +
 
 \subsubsection{Test 1: Stabilność FPS}
 
-\textbf{Konfiguracja:} 100 agentów (40Z, 60H), 60 FPS, czas trwania 1 minuta
+\textbf{Konfiguracja:} 100 agentów (40Z, 60H), 60 FPS (docelowe), czas trwania 1 minuta
 
 \textbf{Rezultaty:}
 \begin{itemize}
-	\item Średni FPS: 59.8
-	\item Min FPS: 58
-	\item Max FPS: 61
-	\item Stabilność: Bardzo wysoka
+	\item Średni FPS: 1.53 % Wartość pobrana z tabeli dla 100 agentów
+	\item Min FPS: 1.20
+	\item Max FPS: 1.90
+	\item Stabilność: Bardzo niska
 \end{itemize}
 
-\textbf{Wniosek:} System utrzymuje stałą prędkość dla domyślnej konfiguracji.
+\textbf{Wniosek:} System nie jest w stanie utrzymać docelowej płynności dla domyślnej konfiguracji. Wynik wskazuje na występowanie wąskiego gardła (bottleneck), prawdopodobnie po stronie układu graficznego.
 
 \subsubsection{Test 2: Skalowanie z Liczbą Agentów}
 
@@ -1225,59 +1225,20 @@ Dla $n=100$: $M_{total} \approx 100 \times 4\text{ KB} + 500\text{ KB} +
 	\centering
 	\begin{tabular}{|c|c|c|c|}
 		\hline
-		\textbf{Liczba Agentów} & \textbf{Średni FPS} & \textbf{Czas/Frame (ms)} & \textbf{CPU \%} \\
+		\textbf{Liczba Agentów} & \textbf{Średni FPS} & \textbf{Czas/Frame (ms)} & \textbf{GPU \%} \\
 		\hline
-		50                      & 60                  & 16.7                     & 15\%            \\
-		100                     & 59.8                & 16.7                     & 28\%            \\
-		200                     & 58                  & 17.2                     & 52\%            \\
-		500                     & 35                  & 28.6                     & 95\%            \\
+		50                      & 3.46                & 307                      & 80\%            \\
+		100                     & 1.53                & 631                      & 90\%            \\
+		200                     & 0.84                & 950                      & 100\%           \\
+		400                     & 0.36                & 3005                     & 100\%           \\
 		\hline
 	\end{tabular}
 	\caption{Wpływ liczby agentów na wydajność}
 \end{table}
 
-\textbf{Obserwacja:} Wydajność degrada się kwadratowo, potwierdzając analizę złożoności $O(n^2)$.
-
-\subsection{Test Dynamiki Populacji}
-
-\subsubsection{Scenariusz: 40 Zombie vs 60 Ludzi}
-
-\textbf{Hipoteza:} Zombie powoli zarazą większość ludzi, tworząc wachlarzy epidemii.
-
-\textbf{Obserwacja:}
-\begin{itemize}
-	\item Pierwsze zarażenie: ~10 sekund
-	\item Pik zarażonych: ~60 sekund (30\% populacji)
-	\item Równowaga: ~180 sekund (50Z, 30H, 20Inf)
-	\item Trend: Exponential growth zarażonych, linear decay ludzi
-\end{itemize}
-
-\subsubsection{Test z Medykami}
-
-\textbf{Konfiguracja:} 40Z, 50H, 5 Medyków
-
-\textbf{Wynik:} Medycy znacznie opóźniają rozprzestrzenianie się epidemii, choć asymptotycznie nie są w stanie jej powstrzymać.
-
-\subsection{Analiza Statystyczna}
-
-\subsubsection{Współczynnik Infekacji}
-
-Współczynnik $R_0$ (reproduction number) - ile osób zaraża jeden zombie:
-
-$$R_0 = \frac{\text{liczba zarażonych w równowadze}}{\text{liczba zombie} \cdot \text{czas}}$$
-
-Empirycznie: $R_0 \approx 1.5$ dla domyślnych parametrów.
-
-\subsubsection{Czas Połowicznego Rozpadu Ludzi}
-
-$$t_{1/2} = \frac{\ln(2) \cdot N_0}{k}$$
-
-gdzie $k$ = stała rozpadu (zarażania)
-
-Empirycznie: $t_{1/2} \approx 120$ sekund dla 100 agentów.
+\textbf{Obserwacja:} Wydajność drastycznie spada wraz ze wzrostem liczby agentów. Już przy 50 agentach użycie GPU sięga 80\%, a przy 200 agentach następuje pełne nasycenie układu graficznego (100\%), co skutkuje nieliniowym wzrostem czasu generowania klatki (3005 ms dla 400 agentów). Potwierdza to, że obecna implementacja renderowania jest głównym ograniczeniem skalowalności systemu.
 
 \newpage
-
 \section{Wybrane Fragmenty Kodu}
 
 \subsection{Fragment 1: Logika Zarażenia Zombie}
@@ -1425,7 +1386,6 @@ def broadcast_threat_info(self, threats):
 	\item System buforowania obserwacji (state\_buffer) jest efektywny dla DQN
 	\item Reward shaping jest kluczowy dla osłabiania podejmowania decyzji przez agentów
 	\item Kompleksowe testy (jednostkowe, mutacyjne) zapewniają niezawodność kodu
-	\item Złożoność $O(n^2)$ jest akceptowalna do ~200 agentów
 \end{itemize}
 
 \end{document}

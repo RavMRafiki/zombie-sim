@@ -23,7 +23,7 @@ def main():
     pygame.display.set_caption("Zombie Outbreak Simulation")
     clock = pygame.time.Clock()
     
-    grid = Grid(num_zombies=40, num_humans=60, num_infected=0, num_medics=20, num_soldiers=20)
+    grid = Grid(num_zombies=120, num_humans=160, num_infected=0, num_medics=40, num_soldiers=80)
     font = pygame.font.Font(None, 24)
     
     running = True
@@ -50,9 +50,11 @@ def main():
         stats_text = f"Zombies: {zombie_count} | Humans: {human_count} | Infected: {infected_count} | Medics: {medic_count} | Soldiers: {soldier_count}"
         stats_surface = font.render(stats_text, True, (255, 255, 255))
         screen.blit(stats_surface, (10, 10))
-        
+        fps = clock.get_fps() 
+        frame_time = clock.get_time()
+        print(f"FPS: {fps:.2f}, Frame Time: {frame_time} ms")
         pygame.display.flip()
-        clock.tick(FPS)
+        clock.tick()
     
     pygame.quit()
 
