@@ -344,112 +344,80 @@ Gdzie poszczególne składowe zdefiniowane są następująco:
 \end{itemize}
 
 \begin{algorithm}[H]
-	\caption{Algorytm Zachowania Zombie (Act)}
-	\KwIn{Stan otoczenia, sygnały}
+	\SetAlgoLined
+	\caption{Algorytm Zachowania Zombie (Rój i Oblężenie)}
+	\KwData{Wzrok, Słuch (Sygnały od innych Zombie)}
+	\KwResult{Nagroda $R_t$}
 
-	$target \gets \text{None}, min\_dist \gets \infty$\;
+	\tcp{KROK 1: Polowanie (Wzrok i Słuch)}
+	$Cel \leftarrow$ Brak\;
+	Skanuj otoczenie w poszukiwaniu ludzi (Human/Soldier/Medic)\;
 
-	\tcp{1. Percepcja (Wzrok i Słuch)}
-	\For{$char \in \text{VisibleCharacters}$}{
-		\If{$dist(me, char) < min\_dist$}{
-			$target \gets char$; $min\_dist \gets dist$\;
-			\textbf{Broadcast}("prey\_spotted", $char.pos$)\;
+	\If{widzę ofiarę}{
+		$Cel \leftarrow$ Najbliższa ofiara\;
+		Krzycz: "prey\_spotted" (Wezwij inne zombie w okolicy)\;
+	}
+	\ElseIf{słyszę zew "prey\_spotted"}{
+		$Cel \leftarrow$ Źródło sygnału (Biegnij tam, gdzie inni coś znaleźli)\;
+	}
+
+	\tcp{KROK 2: Atak (Infekcja)}
+	\If{mam $Cel$ \textbf{and} $dystans(Cel) \le 1.99$ \textbf{and} Cooldown minął}{
+		Zmień ofiarę w Zombie (Infekcja)\;
+		Zresetuj Cooldown ataku\;
+		\Return $+10.0$ \tcp*{Sukces}
+	}
+
+	\tcp{KROK 3: Ocena Ruchu (Mechanizm Oblężenia)}
+	$R_t \leftarrow$ Nagroda bazowa za bliskość (Węch)\;
+
+	\eIf{jestem w Strefie Oblężenia ($dystans \le 2.5$)}{
+		\tcp{Jest tłoczno - nagradzamy samą presję}
+		$R_t \leftarrow R_t + 0.5$ \tcp*{Brawo, osaczyłeś go}
+		Ignoruj karę za stanie w miejscu (Action Wait)\;
+	}{
+		\tcp{Strefa Pościgu - musisz biec}
+		\eIf{zbliżyłem się do celu}{
+			$R_t \leftarrow R_t + 0.5$ \tcp*{Dobry kierunek}
+		}{
+			$R_t \leftarrow R_t - 0.5$ \tcp*{Zły kierunek / Błądzenie}
 		}
 	}
 
-	\If{$target$ is None}{
-		$target \gets \text{SignalSource("prey\_spotted")}$\;
-	}
-
-	\tcp{2. Próba Infekcji}
-	\If{$min\_dist \le 1.99$ \textbf{and} $Cooldown == 0$}{
-		\textbf{Infect}($target$)\;
-		\Return $+10$\;
-	}
-
-	\tcp{3. Obliczenie Nagrody za Ruch}
-	\If{$min\_dist \le 2.5$}{
-		\tcp*[h]{Strefa Oblężenia}
-		\Return $+0.5 + R_{base\_prox}$\;
-	}
-	\Else{
-		\tcp*[h]{Strefa Pościgu}
-		$R_{dir} \gets (min\_dist < prev\_dist) ? +0.5 : -0.5$\;
-		\Return $R_{dir} + R_{base\_prox}$\;
-	}
+	$R_t \leftarrow R_t - 0.05$ \tcp*{Głód (stała kara czasowa)}
+	\Return $R_t$\;
 \end{algorithm}
 
-\subsubsection{Soldier: Reaktywna Obrona}
+\subsubsection{Soldier: Reaktywna Obrona i Taktyka}
 
-Żołnierz jest jednostką bojową. Jego funkcja celu promuje eliminację zagrożeń oraz taktyczne poruszanie się.
-
-\paragraph{Funkcja Nagrody}
-\begin{equation}
-	R_{soldier}^{(t)} = R_{kill} + R_{survival} + R_{tactical} + R_{death}
-\end{equation}
-
-\begin{itemize}
-	\item $R_{kill} = +10.0$: Za skuteczną eliminację zombie.
-	\item $R_{survival} = +0.5$: Stała nagroda za każdą klatkę przeżycia.
-	\item $R_{death} = -10.0$: Kara terminalna za śmierć.
-	\item $R_{tactical}$: Kształtowanie zachowania zależne od stanu broni.
-\end{itemize}
-
-\begin{algorithm}[H]
-	\caption{Algorytm Zachowania Żołnierza}
-	\KwIn{Wzrok, Sygnały radiowe}
-
-	\tcp{1. Wybór Celu (Priorytety)}
-	\If{$\exists zombie \in SIGHT\_RANGE$}{
-		$target \gets \text{NearestVisibleZombie}$\;
-	}
-	\ElseIf{$\exists signal \in \text{threat\_alert}$}{
-		$target \gets \text{SignalSource}$\;
-	}
-	\tcp{2. Walka}
-	\If{$WeaponCooldown == 0$ \textbf{and} $dist(target) \le 3.0$}{
-		\textbf{Shoot}($target$)\;
-		\textbf{Broadcast}("zombies\_killed")\;
-		\Return $+10.0$\;
-	}
-
-	\tcp{3. Ocena Ruchu}
-	\Return $R_{survival} + R_{tactical}(dist\_delta, weapon\_status)$\;
-\end{algorithm}
-
-\subsubsection{Human: Instynkt Przetrwania i Ewhakuacja}
-
-Model cywila jest najbardziej złożony pod względem motywacji, balansując między
-panicznym strachem (ucieczka od zagrożenia) a nadzieją (dążenie do strefy, w
-której słychać strzały żołnierzy). Sieć neuronowa otrzymuje na wejściu
-hybrydowy wektor sterujący, łączący te dwie sprzeczne siły.
+Żołnierz pełni rolę jednostki bojowej, której głównym zadaniem jest redukcja populacji zombie. Jego funkcja celu jest hybrydą: promuje agresję, gdy jest to bezpieczne (broń gotowa), oraz ostrożność, gdy konieczne jest przeładowanie.
 
 \paragraph{Funkcja Nagrody}
-Całkowita nagroda $R_{human}^{(t)}$ jest sumą składowych promujących
-przetrwanie i karzących za ryzykowne zachowania:
+Całkowita nagroda $R_{soldier}^{(t)}$ składa się z czterech głównych
+komponentów:
 
 \begin{equation}
-	R_{human}^{(t)} = R_{survival} + R_{escape} + R_{panic} + R_{collision} + R_{death}
+	R_{soldier}^{(t)} = R_{kill} + R_{survival} + R_{tactical} + R_{env} + R_{death}
 \end{equation}
 
 Szczegółowa definicja składowych:
 
 \begin{itemize}
-	\item \textbf{Przetrwanie ($R_{survival}$):} Stała nagroda za każdą klatkę pozostania przy życiu.
-	      $$ R_{survival} = +0.1 $$
+	\item \textbf{Eliminacja ($R_{kill}$):} Wysoka nagroda za skuteczne zabicie zombie.
+	      $$ R_{kill} = +10.0 $$
 
-	\item \textbf{Gradient Ucieczki ($R_{escape}$):} Nagroda dynamiczna, zależna od zmiany dystansu do najbliższego zagrożenia ($d_t$).
-	      $$ R_{escape} = \begin{cases}
-			      +0.5 & \text{jeśli } d_t > d_{t-1} \text{ (Skuteczna ucieczka)}       \\
-			      -0.5 & \text{jeśli } d_t < d_{t-1} \text{ (Bieg w stronę zagrożenia)} \\
-			      0    & \text{w p.p.}
+	\item \textbf{Przetrwanie ($R_{survival}$):} Stała nagroda motywująca do pozostania przy życiu.
+	      $$ R_{survival} = +0.5 \text{ (na klatkę)} $$
+
+	\item \textbf{Taktyka Bojowa ($R_{tactical}$):} Nagroda zależna od stanu broni ($\delta_{weapon}$). Promuje ofensywę tylko wtedy, gdy żołnierz jest zdolny do strzału.
+	      $$ R_{tactical} = \begin{cases}
+			      +0.2 & \text{jeśli } d_t < d_{t-1} \land \text{Broń Gotowa} \text{ (Atak)}      \\
+			      -0.2 & \text{jeśli } d_t > d_{t-1} \land \text{Broń Gotowa} \text{ (Pasywność)} \\
+			      0    & \text{jeśli } \text{Trwa Przeładowanie}
 		      \end{cases} $$
 
-	\item \textbf{Kara Paniczna ($R_{panic}$):} Funkcja aktywująca się po przekroczeniu progu bezpieczeństwa $D_{safe} = 5.0$. Kara rośnie liniowo wraz ze zbliżaniem się do zombie.
-	      $$ R_{panic} = -\max(0, (5.0 - d_t) \cdot 0.2) $$
-
-	\item \textbf{Kary Środowiskowe ($R_{collision}$):} Penalizacja za uderzenie w przeszkodę (ścianę), co zapobiega blokowaniu się agenta w rogach mapy.
-	      $$ R_{collision} = \begin{cases} -0.5 & \text{w przypadku kolizji} \\ 0 & \text{w p.p.} \end{cases} $$
+	\item \textbf{Kary Środowiskowe ($R_{env}$):} Kara za uderzenie w ścianę (błąd nawigacji).
+	      $$ R_{env} = -0.1 $$
 
 	\item \textbf{Śmierć ($R_{death}$):} Terminalna kara za zostanie zarażonym.
 	      $$ R_{death} = -10.0 $$
@@ -457,74 +425,204 @@ Szczegółowa definicja składowych:
 
 \begin{algorithm}[H]
 	\SetAlgoLined
-	\KwData{Pozycja własna, Grid, Sygnały radiowe, $d_{prev}$}
+	\KwData{Wzrok (Local Grid), Sygnały radiowe, Stan broni}
 	\KwResult{Wartość nagrody $R_t$}
 
-	$R_t \leftarrow 0.1$ \tcp*{Survival Reward}
-	$d_{min} \leftarrow \infty$; $target_{threat} \leftarrow$ None; $target_{rescue} \leftarrow$ None\;
+	$R_t \leftarrow +0.5$ \tcp*{Bazowa nagroda za życie}
 
-	\tcp{1. Percepcja (Wzrok i Słuch)}
-	\For{każda postać $c$ w zasięgu percepcji}{
-		\If{$c$ jest Zombie/Infected}{
-			$d \leftarrow dist(self, c)$\;
-			\If{$d < d_{min}$}{ $d_{min} \leftarrow d$; $target_{threat} \leftarrow c$ }
-		}
+	\tcp{KROK 1: Identyfikacja Celu (Priorytety)}
+	\If{widzę jakiegokolwiek zombie}{
+		$Cel \leftarrow$ Najbliższy widoczny zombie\;
 	}
-
-	\tcp{2. Komunikacja (Broadcast)}
-	\If{$d_{min} \le DetectionRange$}{
-		\textbf{Broadcast}("threat\_alert", $target_{threat}.pos$)\;
-	}
-
-	\tcp{3. Fuzja Sensorów (Wejście Sieci)}
-	\If{$target_{threat}$ exists}{
-		$\vec{v}_{fear} \leftarrow \text{Normalize}(pos_{self} - pos_{threat})$ \tcp*{Wektor OD zagrożenia}
+	\ElseIf{słyszę komunikat "threat\_alert"}{
+		$Cel \leftarrow$ Miejsce, skąd nadeszło wezwanie pomocy\;
 	}
 	\Else{
-		$\vec{v}_{fear} \leftarrow [0, 0]$\;
+		$Cel \leftarrow$ Brak (Patroluj lub stój)\;
 	}
 
-	$S_{rescue} \leftarrow \text{GetSignal("zombies\_killed")}$\;
-	\If{$S_{rescue}$ exists}{
-		$\vec{v}_{hope} \leftarrow \text{Normalize}(pos_{signal} - pos_{self})$ \tcp*{Wektor DO ratunku}
-	}
-	\Else{
-		$\vec{v}_{hope} \leftarrow [0, 0]$\;
-	}
-
-	\textbf{NeuralInput} $\leftarrow [\vec{v}_{fear}, \vec{v}_{hope}]$ \tcp*{Wektor 4-elementowy}
-
-	\tcp{4. Obliczenie Nagrody}
-	\If{kolizja ze ścianą}{
-		$R_t \leftarrow R_t - 0.5$\;
+	\tcp{KROK 2: Decyzja o Walka}
+	\If{mam cel \textbf{and} $dystans(Cel) \le 3.0$ \textbf{and} broń gotowa}{
+		Strzelaj do celu (Usuń z gry)\;
+		Wyślij komunikat radiowy: "zombies\_killed"\;
+		\Return $+10.0$ \tcp*{Nagroda za fraga}
 	}
 
-	\If{$d_{min} < \infty$}{
-		\tcp{Strefa Paniki}
-		\If{$d_{min} < 5.0$}{
-			$R_t \leftarrow R_t - (5.0 - d_{min}) \cdot 0.2$\;
-		}
+	\tcp{KROK 3: Ocena Ruchu (Taktyka)}
+	\If{uderzyłem w ścianę}{
+		$R_t \leftarrow R_t - 0.1$ \tcp*{Kara za kolizję}
+	}
 
-		\tcp{Ocena kierunku ruchu}
-		\eIf{$d_{min} > d_{prev}$}{
-			$R_t \leftarrow R_t + 0.5$ \tcp*{Ucieczka}
+	\If{mam cel \textbf{and} broń jest gotowa ($>80\%$)}{
+		\eIf{zbliżyłem się do celu}{
+			$R_t \leftarrow R_t + 0.2$ \tcp*{Dobry ruch (Atak)}
 		}{
-			$R_t \leftarrow R_t - 0.5$ \tcp*{Zły kierunek}
+			$R_t \leftarrow R_t - 0.2$ \tcp*{Zły ruch (Ucieczka przy pełnym magazynku)}
 		}
 	}
 
-	\caption{Algorytm Zachowania Człowieka (Human Agent)}
+	\caption{Logika Zachowania Żołnierza}
+\end{algorithm}
+
+\subsubsection{Human: Instynkt Przetrwania}
+
+Model cywila opiera się na psychologicznym balansowaniu między strachem a
+nadzieją. Sieć neuronowa uczy się unikać miejsc niebezpiecznych
+(reprezentowanych przez wektor strachu) i podążać w kierunku miejsc, gdzie
+żołnierze skutecznie walczą z zagrożeniem (wektor nadziei).
+
+\paragraph{Funkcja Nagrody}
+\begin{equation}
+	R_{human}^{(t)} = R_{alive} + R_{escape} - R_{panic} + R_{env} + R_{death}
+\end{equation}
+
+\begin{itemize}
+	\item $R_{alive} = +0.1$: Nagroda za przeżycie.
+	\item $R_{escape}$: Nagroda za ucieczkę (zwiększanie dystansu od wroga).
+	\item $R_{panic}$: Wykładnicza kara za dopuszczenie zombie zbyt blisko ($<5.0$).
+	\item $R_{env} = -0.5$: Kara za uderzenie w ścianę (paniczne obijanie się).
+\end{itemize}
+
+\begin{algorithm}[H]
+	\SetAlgoLined
+	\caption{Algorytm Zachowania Człowieka}
+	\KwData{Otoczenie, Sygnały}
+	\KwResult{Nagroda $R_t$ oraz Wektor Sterujący dla Sieci}
+
+	\tcp{KROK 1: Percepcja i Ostrzeganie}
+	Skanuj otoczenie w poszukiwaniu zombie\;
+	\If{zombie jest blisko}{
+		Krzycz: "threat\_alert" (Ostrzeż innych)\;
+		Oblicz \textbf{Wektor Strachu} (przeciwny do pozycji zombie)\;
+	}
+	\Else{
+		Wektor Strachu = $[0,0]$\;
+	}
+
+	\If{słyszę sygnał "zombies\_killed"}{
+		Oblicz \textbf{Wektor Nadziei} (w stronę żołnierza)\;
+	}
+	\Else{
+		Wektor Nadziei = $[0,0]$\;
+	}
+
+	Przekaż oba wektory do Sieci Neuronowej $\rightarrow$ Wykonaj Ruch\;
+
+	\tcp{KROK 2: Obliczenie Nagrody (Konsekwencje)}
+	$R_t \leftarrow +0.1$ \tcp*{Za przeżycie}
+
+	\If{uderzyłem w ścianę}{
+		$R_t \leftarrow R_t - 0.5$ \tcp*{Kara za panikę w ślepym zaułku}
+	}
+
+	$d_{min} \leftarrow$ dystans do najbliższego zombie\;
+	\If{widzę zombie}{
+		\tcp{Ocena Ucieczki}
+		\eIf{oddaliłem się od zombie}{
+			$R_t \leftarrow R_t + 0.5$ \tcp*{Ucieczka skuteczna}
+		}{
+			$R_t \leftarrow R_t - 0.5$ \tcp*{Bieg w stronę śmierci}
+		}
+
+		\tcp{Kara za Panikę (Panic Penalty)}
+		\If{$d_{min} < 5.0$}{
+			$kara \leftarrow (5.0 - d_{min}) \cdot 0.2$\;
+			$R_t \leftarrow R_t - kara$ \tcp*{Im bliżej, tym większy strach}
+		}
+	}
+
+	\Return $R_t$\;
 \end{algorithm}
 
 \subsection{Algorytmy Deterministyczne (Medyk)}
 
-Medycy w systemie nie używają sieci neuronowych, lecz hybrydowego podejścia
-opartego na algorytmie A* z dynamiczną koordynacją (protokół Claim \& Yield)
-oraz ograniczonym polem widzenia ("Fog of War").
+Medycy w systemie stanowią grupę agentów kooperacyjnych, nieużywających sieci
+neuronowych. Ich zachowanie jest w pełni deterministyczne, co gwarantuje
+przewidywalność i skuteczność działań ratunkowych.
+
+Kluczowe mechanizmy sterujące to:
+\begin{enumerate}
+	\item \textbf{Planowanie ścieżki (A*):} Znajdowanie optymalnej trasy w dynamicznym środowisku.
+	\item \textbf{Mgła Wojny (Fog of War):} Ograniczenie wiedzy o przeszkodach do zasięgu wzroku.
+	\item \textbf{Protokół Koordynacji (Claim \& Yield):} Decentralizowany system rozwiązywania konfliktów zadań.
+\end{enumerate}
+
+\subsubsection{Algorytm A* z Mgłą Wojny}
+
+Agent wykorzystuje algorytm A* do wyznaczania trasy, minimalizując funkcję
+kosztu $f(n)$:
+\begin{equation}
+	f(n) = g(n) + h(n)
+\end{equation}
+gdzie $g(n)$ to koszt dojścia do węzła $n$, a $h(n)$ to heurystyka (odległość euklidesowa do celu).
+
+Wyróżnikiem implementacji jest dynamiczna mapa przeszkód $\mathcal{O}_{medic}$.
+Medyk nie posiada wiedzy absolutnej o położeniu wszystkich agentów na mapie.
+Traktuje on kafelki jako wolne, dopóki nie zobaczy na nich przeszkody (innego
+agenta).
 \begin{equation}
 	\mathcal{O}_{medic} = \{ p_j \mid p_j \in \text{Agents} \land p_j \ne \text{Target} \land \|p_{med} - p_j\| \le R_{vision} \}
 \end{equation}
-Medyk dodaje agentów do zbioru przeszkód $\mathcal{O}$ tylko wtedy, gdy znajdują się w jego promieniu wzroku ($R_{vision} = 8.0$), co symuluje brak pełnej wiedzy o mapie.
+Dzięki temu medyk planuje trasę optymistycznie ("pobiegnę na skróty"), a koryguje ją lokalnie dopiero po napotkaniu tłumu ("omijam przeszkodę").
+
+\subsubsection{Koordynacja: Claim \& Yield}
+
+Aby zapobiec sytuacji, w której wielu medyków biegnie do jednego pacjenta
+(marnotrawstwo zasobów), zaimplementowano protokół radiowy.
+\begin{itemize}
+	\item \textbf{Claim (Zajmij):} Medyk ogłasza przez radio: "Biegnę do pacjenta X, mam do niego dystans $D$".
+	\item \textbf{Yield (Ustąp):} Jeśli medyk usłyszy, że inny kolega też biegnie do pacjenta X, ale jest bliżej (mniejsze $D$), natychmiast porzuca cel i szuka innego.
+\end{itemize}
+
+\begin{algorithm}[H]
+	\SetAlgoLined
+	\caption{Algorytm Medyka (A* i Koordynacja)}
+	\KwData{Wzrok, Sygnały radiowe ("help", "medic\_en\_route")}
+	\KwResult{Ruch (A*) lub Leczenie}
+
+	\tcp{KROK 1: Wybór Najlepszego Celu}
+	$Kandydaci \leftarrow$ Zainfekowani widoczni wzrokiem $\cup$ Źródła sygnałów "medic\_requested"\;
+
+	$Cel \leftarrow$ Najbliższy Kandydat\;
+
+	\tcp{KROK 2: Protokół Claim \& Yield (Unikanie konfliktów)}
+	\If{mam Cel}{
+		$MojDystans \leftarrow dist(self, Cel)$\;
+
+		\tcp{Sprawdź czy ktoś lepszy już tam biegnie}
+		\For{sygnał "medic\_en\_route" od innych medyków}{
+			\If{sygnał dotyczy mojego Celu}{
+				\If{$InnyDystans < MojDystans$}{
+					Porzuć $Cel$ (Ustąp lepszemu)\;
+					Przejdź do KROKU 1 (Szukaj innego)\;
+				}
+			}
+		}
+	}
+
+	\tcp{KROK 3: Działanie}
+	\If{nie mam Celu}{
+		\Return Czekaj (Action 4)\;
+	}
+
+	\textbf{Broadcast}("medic\_en\_route", $Cel$, $MojDystans$) \tcp*{Zajmuję cel}
+
+	\If{$MojDystans \le 1.5$ (Zasięg leczenia)}{
+		Wylecz Cel (Przywróć typ Human/Soldier)\;
+		\Return Czekaj\;
+	}
+
+	\tcp{KROK 4: Ruch A* (Fog of War)}
+	$Przeszkody \leftarrow \emptyset$\;
+	\For{każda postać $p$}{
+		\If{$dist(self, p) \le Wzrok$ \textbf{and} $p \ne Cel$}{
+			Dodaj $p$ do $Przeszkody$\;
+		}
+	}
+
+	$Sciezka \leftarrow$ \textbf{A\_Star}($Start=Ja$, $Cel=Pacjent$, $Przeszkody$)\;
+	\Return Pierwszy krok ze $Sciezka$\;
+\end{algorithm}
 
 \section{Implementacja Systemu}
 
