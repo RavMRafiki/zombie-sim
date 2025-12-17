@@ -18,8 +18,10 @@ class Character:
         self.x = x
         self.y = y
         self.grid = grid
+        self.is_alive = True
         self.last_move_time = pygame.time.get_ticks()
         self.signals = []
+        self.SIGNAL_MEMORY_TIME = 10000 # Pamiętamy sygnały przez 10 sekund
         # Inicjalizacja pustego bufora (4 klatki, 11x11 zer)
         INITIAL_STATE_FRAMES = 4
         self.state_buffer = deque(maxlen=INITIAL_STATE_FRAMES)
@@ -35,32 +37,9 @@ class Character:
             self.last_move_time = current_time
     
     def move(self, action_code=None):
-        """Move character one tile towards target position or randomly
-        
-        Args:
-            position: Tuple (x, y) of desired target position. If None, moves randomly.
-        """
-        # import random
-        
-        # if position is None:
-        #     direction = random.choice([(0, 1), (0, -1), (1, 0), (-1, 0)])
-        #     new_x = self.x + direction[0]
-        #     new_y = self.y + direction[1]
-        # else:
-        #     target_x, target_y = position
-            
-        #     dx = target_x - self.x
-        #     dy = target_y - self.y
-            
-        #     new_x = self.x
-        #     new_y = self.y
-            
-        #     if abs(dx) > 0:
-        #         new_x = self.x + (1 if dx > 0 else -1)
-        #     elif abs(dy) > 0:
-        #         new_y = self.y + (1 if dy > 0 else -1)
-        dx, dy = 0, 0  # pragma: no mutate
-        if action_code == 0: dy = -1  # Góra  # pragma: no mutate
+        """Move character based on action code"""
+        dx, dy = 0, 0
+        if action_code == 0: dy = -1  # Góra
         elif action_code == 1: dy = 1 # Dół
         elif action_code == 2: dx = -1 # Lewo
         elif action_code == 3: dx = 1  # Prawo
@@ -92,6 +71,12 @@ class Character:
     def act(self):
         """Perform character-specific action (override in subclasses)"""
         pass
+
+    def process_signals(self):
+        """Usuwa przestarzałe sygnały"""
+        current_time = pygame.time.get_ticks()
+        # Zostawiamy tylko te, które są młodsze niż 3 sekundy
+        self.signals = [s for s in self.signals if current_time - s["time"] < self.SIGNAL_MEMORY_TIME]
     
     def send_signal(self, signal_type, broadcast_range=3, data=None):
         """Send a signal to nearby characters"""
@@ -123,14 +108,10 @@ class Character:
             "time": pygame.time.get_ticks()
         })
     
-    def process_signals(self):
-        """Process all received signals (override in subclasses for custom behavior)"""
-        self.signals.clear()
-    
-    def draw(self, screen):
+    def draw(self, screen, offset_y=0):
         """Draw character on screen"""
         pixel_x = self.x * CELL_SIZE
-        pixel_y = self.y * CELL_SIZE
+        pixel_y = self.y * CELL_SIZE + offset_y
         pygame.draw.rect(screen, self.color, (pixel_x, pixel_y, CELL_SIZE, CELL_SIZE))
     
     def get_type_name(self):
