@@ -1,129 +1,215 @@
 """Zombie character class"""
 
 import math
+import numpy as np
 import pygame
 from character import Character
 from constants import MOVE_INTERVAL
 
 
+
 class Zombie(Character):
-    """Zombie character - moves aggressively"""
+    """Zombie character - Aggressive Swarm Intelligence"""
     
     char_type_name = "Zombie"
-    color = (0, 255, 0)
+    color = (0, 255, 0) # Zielony
     move_speed = MOVE_INTERVAL
+    
+    # Parametry
     INFECTION_RANGE = 1.99
     INFECTION_COOLDOWN = 5000
+    SIGHT_RANGE = 7.2       # Zasięg wzroku (krótki)
+    SIEGE_RANGE = 2.5 # Zasięg "Oblężenia" (tłok przy ofierze)
+    BROADCAST_RANGE = 65.0  # Zasięg "jęku" (sygnalizowanie innym zombie)
+    SIGNAL_MEMORY_TIME = 3000 # Pamięta sygnały przez 3 sekundy
     
     def __init__(self, x, y, grid=None):
         super().__init__(x, y, grid)
-        self.last_infection_time = 5000
-        self.prev_dist = 0
-    
+        self.last_infection_time = 0
+        self.prev_dist = float('inf')
+        
+
+    def get_target_vector(self):
+        """
+        Zwraca wektor [dx, dy].
+        1. Jeśli widzę człowieka -> Idź do niego + KRZYCZ (Broadcast).
+        2. Jeśli słyszę innego Zombie -> Idź do źródła sygnału.
+        3. W przeciwnym razie -> [0,0].
+        """
+        target_pos = None
+        min_dist = float('inf')
+
+        # Importy lokalne
+        from human import Human
+        from medic import Medic
+        from soldier import Soldier
+
+        # --- 1. WZROK (Priorytet najwyższy) ---
+        found_victim = False
+        
+        for char in self.grid.characters:
+            if isinstance(char, (Human, Medic, Soldier)):
+                dist_sq = (self.x - char.x)**2 + (self.y - char.y)**2
+                
+                # Jeśli jest w zasięgu wzroku
+                if dist_sq <= (self.SIGHT_RANGE ** 2):
+                    if dist_sq < min_dist:
+                        min_dist = dist_sq
+                        target_pos = (char.x, char.y)
+                        found_victim = True
+
+        # Jeśli znaleźliśmy ofiarę wzrokiem -> WOŁAMY INNYCH!
+        if found_victim and target_pos:
+            self.broadcast_prey_spotted(target_pos)
+
+        # --- 2. SŁUCH (Priorytet niższy) ---
+        # Jeśli nie widzę nikogo, sprawdzam czy koledzy coś widzieli
+        if not target_pos:
+            for signal in self.signals:
+                if signal['type'] == 'prey_spotted':
+                    # Idziemy tam, gdzie inny zombie widział ofiarę
+                    prey_pos = signal['data']['prey_pos']
+                    dist_sq = (self.x - prey_pos[0])**2 + (self.y - prey_pos[1])**2
+                    
+                    if dist_sq < min_dist:
+                        min_dist = dist_sq
+                        target_pos = prey_pos
+
+        # --- 3. KONSTRUKCJA WEKTORA ---
+        if target_pos is None:
+            return np.array([0.0, 0.0], dtype=np.float32)
+            
+        dx = target_pos[0] - self.x
+        dy = target_pos[1] - self.y
+        length = math.sqrt(dx**2 + dy**2)
+        
+        if length == 0: return np.array([0.0, 0.0], dtype=np.float32)
+        
+        return np.array([dx / length, dy / length], dtype=np.float32)
+
     def act(self):
         """Zombies perform aggressive behavior - infect nearby humans"""
         if not self.grid: 
             return 0
         
         current_time = pygame.time.get_ticks()
-        step_reward = 0 # Domyślna nagroda (może być -0.1 za upływ czasu)
+        step_reward = 0 
 
+        # Musimy odtworzyć logikę znajdowania celu, aby obliczyć nagrodę
+        # (Ale bez broadcastu, żeby nie dublować)
+        
+        from human import Human
+        from medic import Medic
+        from soldier import Soldier
+        
+        target_pos = None
         min_dist = float('inf')
-        from human import Human # Importy
         
-        # Znajdź najbliższego człowieka
+        # 1. Sprawdzamy co widzi/słyszy agent (tak samo jak w get_target_vector)
+        # Wzrok
         for char in self.grid.characters:
-            if isinstance(char, Human): # (Dla uproszczenia pomijam Medic/Soldier w tym przykładzie)
-                dist = math.sqrt((self.x - char.x)**2 + (self.y - char.y)**2)
-                if dist < min_dist:
-                    min_dist = dist
+            if isinstance(char, (Human, Medic, Soldier)):
+                d = math.sqrt((self.x - char.x)**2 + (self.y - char.y)**2)
+                if d <= self.SIGHT_RANGE and d < min_dist:
+                    min_dist = d
+                    target_pos = (char.x, char.y)
         
-        # Logika "Węchu" (Reward Shaping)
-        VIEW_RANGE = 5.0
-
+        # Słuch (jeśli wzrok zawiódł)
+        if not target_pos:
+             for signal in self.signals:
+                if signal['type'] == 'prey_spotted':
+                    p_pos = signal['data']['prey_pos']
+                    d = math.sqrt((self.x - p_pos[0])**2 + (self.y - p_pos[1])**2)
+                    if d < min_dist:
+                        min_dist = d
+                        # Uwaga: To jest dystans do ofiary widzianej przez kogoś innego
+        
+        # --- LOGIKA NAGRÓD (Reward Shaping) ---
         if min_dist < float('inf'):
-            # Nagroda za zbliżanie się do najbliższego człowieka
-            if min_dist < VIEW_RANGE:
-                step_reward += (VIEW_RANGE - min_dist) * 0.2 # Im bliżej, tym większa nagroda
+            # Nagroda za zbliżanie się do celu (widzianego lub słyszanego)
+            if min_dist < self.SIGHT_RANGE:
+                step_reward += (self.SIGHT_RANGE - min_dist) * 0.2 
 
+            # STREFA A: OBLĘŻENIE (Bardzo blisko)
+            if min_dist <= self.SIEGE_RANGE:
+                # Jesteś w "młynie". Nie karzemy za to, że nie możesz podejść bliżej.
+                # Nagradzamy za samo wywieranie presji.
+                step_reward += 0.5 
+                
+                # TUTAJ NIE MA KARY ZA ZŁY KIERUNEK!
+                # Zombie może krążyć wokół ofiary szukając luki i nie dostanie minusów.
+
+            # STREFA B: POŚCIG (Daleko)
+            else:
+                # Tutaj musisz biec prosto do celu. Jak się cofasz -> Kara.
                 if min_dist < self.prev_dist:
-                    step_reward += 0.5 # Dodatkowa nagroda za dobry kierunek
-
+                    step_reward += 0.5 # Brawo, biegniesz do ofiary
                 elif min_dist > self.prev_dist:
-                    step_reward -= 0.5 # Kara za zły kierunek
+                    step_reward -= 0.5 # Źle! Uciekasz/Błądzisz -> Kara
 
             self.prev_dist = min_dist
         else:
             self.prev_dist = float('inf')
         
-        # Check if infection is off cooldown
+        # --- LOGIKA INFEKCJI (Bez zmian) ---
         if current_time - self.last_infection_time < self.INFECTION_COOLDOWN:
             return step_reward
         
-        # Import here to avoid circular imports
-        
-        from medic import Medic
-        from soldier import Soldier
-        from infected import Infected
-        
-        # Check for infectable characters in range
         for character in self.grid.characters:
             if isinstance(character, (Human, Medic, Soldier)):
                 dx = self.x - character.x
                 dy = self.y - character.y
                 distance = math.sqrt(dx*dx + dy*dy)
                 
-                # Infect if in range
                 if distance <= self.INFECTION_RANGE:
                     success = self.infect_character(character)
                     if success:
-                        step_reward += 10 # <--- TUTAJ JEST TWOJA NAGRODA
+                        step_reward += 10 
                         print(f"Zombie {id(self)} zaraził człowieka! Nagroda +10")
                         self.last_infection_time = current_time
-                        break # Zazwyczaj jeden atak na turę
+                        break 
 
         return step_reward
     
+    def broadcast_prey_spotted(self, prey_pos):
+        """
+        Wysyła sygnał do innych Zombie: 'Znalazłem jedzenie tutaj!'
+        """
+        if not self.grid: return
+        
+        # Ograniczenie częstotliwości (opcjonalne, ale zalecane dla wydajności)
+        # Można dodać self.last_broadcast_time jak u Medyka
+        
+        for character in self.grid.characters:
+            if character is self: continue
+            
+            # Wysyłamy TYLKO do innych Zombie (i Infected)
+            # Używamy stringów nazw klas lub isinstance
+            if character.char_type_name not in ["Zombie", "Infected"]:
+                continue
+            
+            dx = self.x - character.x
+            dy = self.y - character.y
+            dist = math.sqrt(dx*dx + dy*dy)
+            
+            if dist <= self.BROADCAST_RANGE:
+                if hasattr(character, 'receive_signal'):
+                    character.receive_signal("prey_spotted", {
+                        "source": self,
+                        "prey_pos": prey_pos,
+                        "dist_to_prey": dist # Informacyjnie
+                    })
+
     def infect_character(self, character):
         """Convert a character to infected"""
         if self.grid:
             from infected import Infected
             
             idx = self.grid.characters.index(character)
-            infected = Infected(character.x, character.y, self.grid, previous_type=character.get_type_name())
+            # Przekazujemy previous_type, żeby Medyk wiedział kogo wskrzesić
+            infected = Infected(character.x, character.y, self.grid, previous_type=character.char_type_name)
             self.grid.characters[idx] = infected
 
-        character.get_infected()
+        character.get_infected() # To wywoła krzyki o pomoc u ofiary
 
         return True
-
-    def get_target_vector(self):
-        """
-        Zwraca znormalizowany wektor [dx, dy] wskazujący na najbliższego człowieka.
-        Jeśli brak ludzi, zwraca [0, 0].
-        """
-        closest_human = None
-        min_dist = float('inf')
-        from human import Human
-        import numpy as np
-        
-        # Znajdź najbliższego człowieka (używając globalnej listy z gridu)
-        for char in self.grid.characters:
-            if isinstance(char, Human): # i ewentualnie Medic/Soldier
-                dist = (self.x - char.x)**2 + (self.y - char.y)**2 # Bez pierwiastka szybciej
-                if dist < min_dist:
-                    min_dist = dist
-                    closest_human = char
-                    
-        if closest_human is None:
-            return np.array([0.0, 0.0], dtype=np.float32)
-            
-        # Oblicz różnicę
-        dx = closest_human.x - self.x
-        dy = closest_human.y - self.y
-        
-        # Normalizacja wektora (żeby miał długość 1)
-        length = math.sqrt(dx**2 + dy**2)
-        if length == 0: return np.array([0.0, 0.0], dtype=np.float32)
-        
-        return np.array([dx / length, dy / length], dtype=np.float32)

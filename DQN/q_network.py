@@ -25,7 +25,7 @@ class ZombieQNetwork(nn.Module):
 
         # --- GAŁĄŹ 2: WEKTOR (SENSOR) ---
         # Wejście: 2 liczby (dx, dy)
-        self.vector_fc = nn.Linear(2, 32) # Rozszerzamy 2 liczby do 32 cech
+        self.vector_fc = nn.Linear(vector_size, 32) # Rozszerzamy 2 liczby do 32 cech
 
         # --- POŁĄCZENIE (FUSION) ---
         # Wejście do warstwy gęstej to suma cech z obrazu i z wektora
