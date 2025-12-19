@@ -8,7 +8,7 @@ from soldier import Soldier
 from zombie import Zombie
 from human import Human
 from medic import Medic
-from constants import WINDOW_SIZE, COLOR_BACKGROUND, FPS
+from constants import WINDOW_SIZE, COLOR_BACKGROUND, COLOR_ZOMBIE, COLOR_HUMAN, COLOR_INFECTED, COLOR_MEDIC, COLOR_SOLIDIER
 
 pygame.init()
 
@@ -47,12 +47,30 @@ def main():
         
         # Draw stats
         zombie_count, human_count, infected_count, medic_count, soldier_count = grid.get_stats()
-        stats_text = f"Zombies: {zombie_count} | Humans: {human_count} | Infected: {infected_count} | Medics: {medic_count} | Soldiers: {soldier_count}"
-        stats_surface = font.render(stats_text, True, (255, 255, 255))
-        screen.blit(stats_surface, (10, 10))
-        fps = clock.get_fps() 
-        frame_time = clock.get_time()
-        print(f"FPS: {fps:.2f}, Frame Time: {frame_time} ms")
+        stats_data = [
+            ("Zombie", zombie_count, COLOR_ZOMBIE),
+            ("Human", human_count, COLOR_HUMAN),
+            ("Infected", infected_count, COLOR_INFECTED),
+            ("Medic", medic_count, COLOR_MEDIC),
+            ("Soldier", soldier_count, COLOR_SOLIDIER)
+        ]
+
+        current_x = 10  
+        y_pos = 10   
+        icon_size = 15  
+        spacing = 5      
+        group_spacing = 15 
+
+        for label, count, color in stats_data:
+
+            pygame.draw.rect(screen, color, (current_x, y_pos, icon_size, icon_size))
+            
+            text_str = f"{label}: {count}"
+            text_surface = font.render(text_str, True, (255, 255, 255))
+            
+            screen.blit(text_surface, (current_x + icon_size + spacing, y_pos + 2))
+            current_x += icon_size + spacing + text_surface.get_width() + group_spacing
+            
         pygame.display.flip()
         clock.tick()
     
