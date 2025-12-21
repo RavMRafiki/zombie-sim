@@ -1,7 +1,7 @@
 \documentclass[12pt,a4paper]{article}
 \usepackage[polish]{babel}
 \usepackage[T1]{fontenc}
-\usepackage[utf8x]{inputenc}
+\usepackage[utf8]{inputenc}
 \usepackage{hyperref}
 \usepackage{url}
 \usepackage[]{algorithm2e}
@@ -9,9 +9,7 @@
 \usepackage{amssymb}
 \usepackage{amsmath}
 \usepackage{float}
-
 \usepackage{color}
-\usepackage{listings}
 
 \lstloadlanguages{% Check Dokumentation for further languages ...
 	C,
@@ -99,10 +97,10 @@
 \subsection{Definicja Modelu}
 System ``Zombie Outbreak Simulation'' jest symulacją wieloagentową opracowywaną
 w środowisku gry 2D. Model systemu stanowi szachownica o wymiarach 128x128
-komórek, na której poruszają się pięć typów autonomicznych agentów
-posiadających różne cele i zachowania. Każdy agent podejmuje decyzje w oparciu
-o obserwacje otoczenia i stanu wewnętrznego, stanowiąc część zamodelowanego
-ekosystemu zmagan ludzi zombie.
+komórek, na której porusza się pięć typów autonomicznych agentów posiadających
+różne cele i zachowania. Każdy agent podejmuje decyzje w oparciu o obserwacje
+otoczenia i stanu wewnętrznego, stanowiąc część zamodelowanego ekosystemu
+zmagań ludzi z zombie.
 
 \subsection{Uzasadnienie w Kontekście Budowanego Systemu}
 Model wieloagentowy (MAS - Multi-Agent System) pozwala na symulowanie złożonych
@@ -157,10 +155,20 @@ Każda postać ma przypisane:
 	\item Aktywować środowisko: \texttt{source .venv/bin/activate}
 	\item Zainstalować zależności: \texttt{pip install -r requirements.txt}
 	\item Uruchomić program: \texttt{python main.py}
-	\item Program automatycznie inicjalizuje agentów DQN i tworzy siatkę z 40 zombie, 60
-	      ludźmi, 20 medykami i 20 żołnierzami
-	\item Zamknąć okno aplikacji, aby zakończyć symulację
+	\item Program automatycznie inicjalizuje agentów DQN i tworzy siatkę. \textbf{Uwaga:
+		      Każde uruchomienie aplikacji rozpoczyna proces uczenia od podstaw (tabula
+		      rasa).} Agenci nie posiadają wcześniejszej wiedzy, a wagi sieci są
+	      inicjalizowane losowo.
+	\item Zamknąć okno aplikacji, aby zakończyć symulację.
 \end{enumerate}
+
+\subsubsection{Wymagania Sprzętowe i Konfiguracja}
+Ze względu na wykorzystanie głębokich sieci neuronowych (DQN z warstwami
+konwolucyjnymi) przeliczanych w czasie rzeczywistym dla wielu agentów:
+\begin{itemize}
+	\item \textbf{Zalecane jest użycie karty graficznej z obsługą CUDA.} Uruchomienie symulacji na samym procesorze (CPU) może skutkować znacznym spadkiem płynności animacji (niskie FPS) oraz wolniejszym procesem uczenia.
+	\item Program automatycznie wykrywa dostępność CUDA w bibliotece PyTorch.
+\end{itemize}
 
 \subsubsection{Legenda Kolorów}
 \begin{itemize}
@@ -948,7 +956,7 @@ synchronizację stanu gry.
 Inicjalizuje siatkę i losowo umieszcza wszystkich agentów na mapie o wymiarach \texttt{GRID\_SIZE x GRID\_SIZE} (zwykle 128x128). Każdy agent otrzymuje referencję do siatki w parametrze \texttt{self}.
 
 \textbf{draw(screen, offset\_y)}
-Rysuje siatkę (linie siatki) i wszystkich agentów na ekranie. Parametr \texttt{offset\_y} pozwala na przesunięcie w pionie (dla wyświetlenia paska statistyk na górze).
+Rysuje siatkę (linie siatki) i wszystkich agentów na ekranie. Parametr \texttt{offset\_y} pozwala na przesunięcie w pionie (dla wyświetlenia paska statystyk na górze).
 
 \textbf{get\_stats()}
 Zwraca tuple zawierającą liczę każdego typu postaci w formacie:
@@ -975,7 +983,7 @@ lokalnych.
 Postać przejściowa reprezentująca osobę w trakcie transformacji z człowieka w
 zombie. Stanowi krytyczną część epidemiologii - dla medyków to cel do
 uratowania, dla zombie naturalną ostateczność. Infected porusza się wolniej niż
-normalni ludzie i wysyła sygnały o swojim zarażeniu.
+normalni ludzie i wysyła sygnały o swoim zarażeniu.
 
 \subsubsection{Parametry Konfiguracyjne}
 \begin{itemize}
