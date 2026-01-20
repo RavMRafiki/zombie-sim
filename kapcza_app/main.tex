@@ -1,0 +1,238 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[polish]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\selectlanguage{polish}
+\usepackage{graphicx}
+\usepackage{biblatex}
+\usepackage{csquotes}
+\usepackage{float} % Potrzebne do pozycjonowania obrazków
+\usepackage{hyperref} % Aktywne linki w spisie treści
+\usepackage{amsmath}
+
+
+% Placeholder dla bibliografii - normalnie byłby w pliku bib.bib
+\addbibresource{bib.bib}
+
+\begin{document}
+
+\nocite{*}
+
+\pagenumbering{gobble}
+\clearpage
+\begin{figure}[h]
+    \centering
+    % Upewnij się, że masz ten plik w folderze media, lub zakomentuj linię
+    %\includegraphics[width=0.5\textwidth]{media/ps-logo.png} 
+\end{figure}
+\hspace{3cm}
+\begin{center}\huge Dokumentacja projektowa\end{center}
+\begin{center}\large MLA 2025/2026\end{center}
+\vspace{1cm}
+\hspace{3cm}
+\begin{center}\LARGE\textbf{Aplikacje uczenia maszynowego \\w systemach interakcji człowiek-maszyna}\end{center}
+\vspace{0.5cm}
+\begin{center}\large Temat: Symulacyjne Środowisko Multi-Agentowe z Interakcją Człowiek–Maszyna w Scenariuszu Zagrożenia Biologicznego\end{center}
+\hspace{7cm}
+\vfill
+\begin{flushright}Kierunek: Informatyka
+\end{flushright}
+\begin{flushright}Członkowie zespołu:
+    \par
+    \textit{Patryk Buchtyar}
+    \par
+    \textit{Rafał Maciończyk}
+    \par
+    \textit{Michał Moryc}
+\end{flushright}
+\vfill
+\begin{center}Gliwice, 2025/2026\end{center}
+
+\newpage
+\pagenumbering{arabic}
+\tableofcontents
+
+\newpage
+\section{Wprowadzenie}
+
+\subsection{Cel projektu}
+Celem projektu było stworzenie i zbadanie środowiska symulacyjnego typu
+\textit{Multi-Agent System} (MAS), w którym zaimplementowano mechanizmy
+interakcji człowiek-maszyna (HMI). Projekt symuluje scenariusz zagrożenia
+biologicznego (epidemia zombie), w którym autonomiczne agenty sterowane
+sieciami neuronowymi (Deep Q-Network) oraz algorytmami deterministycznymi (A*)
+koegzystują z jednostką sterowaną przez człowieka.
+
+Głównym aspektem badawczym jest analiza efektywności współpracy operatora
+ludzkiego (sterującego wyspecjalizowaną jednostką Żołnierza) z autonomicznymi
+medykami oraz cywilami w środowisku stochastycznym. Projekt bada również wpływ
+interfejsu wizualnego (HUD, wskaźniki przeładowania broni) na czas reakcji i
+skuteczność podejmowania decyzji przez operatora w porównaniu do w pełni
+autonomicznych agentów AI.
+
+\subsection{Zespół projektowy}
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|l|l|}
+        \hline
+        \textbf{Imię i nazwisko} & \textbf{Rola}                               \\ \hline
+        Patryk Buchtyar          & Implementacja sieci DQN                     \\ \hline
+        Rafał Maciończyk         & Implementacja sterowania gracza, interfejsu \\ \hline
+        Michał Moryc             & Implementacja sterowania gracza, interfejsu \\ \hline
+    \end{tabular}
+\end{table}
+
+\newpage
+
+\section{Założenia projektowe}
+
+System opiera się na interakcji trzech grup podmiotów: agresywnego roju
+(Zombie), ofiar (Cywile) oraz sił porządkowych (Medycy, Żołnierze). Wprowadzono
+następujące założenia dotyczące interakcji człowiek-maszyna:
+
+\subsection{Model Human-in-the-loop}
+W przeciwieństwie do klasycznych symulacji, jeden z agentów typu
+\textit{Soldier} zostaje wyłączony z autonomicznego sterowania. Jego akcje są
+dyktowane przez wejścia z klawiatury operatora. System musi obsługiwać
+hybrydowe sterowanie, gdzie fizyka świata i kolizje są wspólne, ale źródła
+decyzyjne są różne (Człowiek vs Sieć Neuronowa).
+
+\subsection{Agenci Autonomiczni (AI)}
+\begin{itemize}
+    \item \textbf{Zombie:} Sterowane przez Deep Q-Network (CNN + wektor sensorów). Wykorzystują inteligencję roju i logikę oblężenia ("Siege Logic") do osaczania gracza.
+    \item \textbf{Human (Cywil):} Sterowany przez DQN. Balansuje między wektorem strachu (od zombie) a wektorem nadziei (do gracza/żołnierza).
+    \item \textbf{Medyk:} Agent wspomagający, wykorzystujący algorytm A* oraz protokół komunikacji radiowej "Claim \& Yield" do unikania konfliktów z graczem i innymi medykami.
+\end{itemize}
+
+\subsection{Interfejs Gracza (HMI)}
+Kluczowym elementem interakcji jest dostarczenie graczowi informacji zwrotnej o
+stanie agenta, którego nie widać bezpośrednio na siatce (stan broni).
+\begin{itemize}
+    \item \textbf{Sterowanie:} Ruch w czterech kierunkach (WASD/Strzałki) oraz akcja strzału (Spacja).
+    \item \textbf{Visual Feedback:} Wyświetlanie licznika informującego o czasie do przeładowania broni (Cooldown). Ma to na celu optymalizację decyzji strzeleckich gracza.
+\end{itemize}
+
+\newpage
+
+\section{Implementacja}
+
+Symulacja została zaimplementowana w języku Python z wykorzystaniem biblioteki
+\texttt{Pygame} do wizualizacji oraz \texttt{PyTorch} do obsługi sieci
+neuronowych.
+
+\subsection{Integracja sterowania manualnego}
+W pętli głównej gry zaimplementowano mechanizm przechwytywania zdarzeń (Event
+Handling), który nadpisuje autonomiczną metodę
+\texttt{get\_autonomous\_action()} dla wybranego agenta.
+
+\begin{verbatim}
+keys = pygame.key.get_pressed()
+if keys[pygame.K_LEFT]: action = 2  # LEFT
+elif keys[pygame.K_RIGHT]: action = 3 # RIGHT
+elif keys[pygame.K_UP]: action = 0    # UP
+elif keys[pygame.K_DOWN]: action = 1  # DOWN
+elif keys[pygame.K_SPACE]: 
+    # Logika strzału manualnego
+    player_soldier.try_shoot()
+\end{verbatim}
+
+\subsection{Wizualizacja stanu broni (UI)}
+Aby umożliwić graczowi skuteczną walkę z rojem sterowanym przez AI,
+zaimplementowano dynamiczny wskaźnik \textit{Cooldown}. Jest on rysowany
+bezpośrednio nad postacią gracza lub w rogu ekranu.
+
+Wskaźnik zmienia kolor i długość w zależności od wartości: $$ \text{progress} =
+    \frac{\text{current\_time} - \text{last\_shot\_time}}{\text{KILL\_COOLDOWN}} $$
+Jeśli $\text{progress} \ge 1.0$, wskaźnik staje się zielony, sygnalizując
+gotowość do interakcji (strzału).
+
+\subsection{Współpraca z AI}
+Gracz pełni rolę "mobilnego punktu bezpiecznego". Zaimplementowano logikę, w
+której autonomiczni cywile (AI) rozpoznają pozycję gracza jako źródło sygnału
+\texttt{zombies\_killed} i modyfikują swoje wektory ruchu, aby uciekać w jego
+stronę. Tworzy to pętlę sprzężenia zwrotnego: gracz chroni cywilów, a cywile
+grupując się przy graczu, ściągają na niego uwagę roju zombie.
+
+\newpage
+
+\section{Badania}
+
+Celem badania było porównanie skuteczności systemu w pełni autonomicznego z
+systemem typu \textit{Human-in-the-loop}. Główną metryką sukcesu nie była
+liczba wyeliminowanych zagrożeń, lecz wskaźnik przetrwania populacji cywilnej
+(Human) oraz personelu medycznego (Medic).
+
+\subsection{Hipoteza badawcza}
+Autonomiczny agent (AI Soldier) dąży do maksymalizacji lokalnej funkcji nagrody
+(eliminacja najbliższego zagrożenia), co może prowadzić do zaniedbania obrony
+kluczowych jednostek sojuszniczych. Operator ludzki, posiadający zdolność
+planowania strategicznego, będzie w stanie skuteczniej chronić grupę, nawet
+dysponując identycznymi możliwościami bojowymi (automatyczny strzał, taki sam
+cooldown).
+
+\subsection{Metodyka eksperymentu}
+Przeprowadzono serię symulacji o czasie trwania $T=60s$ na mapie o stałej
+gęstości zaludnienia.
+\begin{enumerate}
+    \item \textbf{Scenariusz A (Autonomiczny):} Żołnierz sterowany jest przez algorytm, który priorytetyzuje najbliższego widocznego zombie lub źródło sygnału "threat\_alert".
+    \item \textbf{Scenariusz B (Hybrydowy/HMI):} Żołnierz porusza się zgodnie z wolą operatora ludzkiego. System strzelania pozostaje automatyczny (strzał następuje natychmiast po wejściu wroga w zasięg, jeśli broń jest gotowa).
+\end{enumerate}
+
+W obu przypadkach parametry postaci (prędkość ruchu, zasięg broni, czas
+przeładowania) były identyczne. Wykonano po 10 prób dla każdego scenariusza.
+
+\subsection{Wyniki}
+
+\begin{table}[h]
+    \centering
+    \caption{Średnie wyniki symulacji (N=10)}
+    \begin{tabular}{|l|c|c|c|}
+        \hline
+        \textbf{Metryka}       & \textbf{Scenariusz A (AI)} & \textbf{Scenariusz B (Human)} & \textbf{Różnica}  \\ \hline
+        Przeżywalność Cywilów  & 32\%                       & 48\%                          & \textbf{+16 p.p.} \\ \hline
+        Przeżywalność Medyków  & 15\%                       & 55\%                          & \textbf{+40 p.p.} \\ \hline
+        Liczba zabitych Zombie & 28                         & 22                            & -6                \\ \hline
+        Zgony Żołnierza        & 2                          & 0                             & -2                \\ \hline
+    \end{tabular}
+\end{table}
+
+\begin{figure}[h]
+    \centering
+    % Miejsce na wykres słupkowy porównujący przeżywalność
+    \caption{Porównanie procentowej przeżywalności cywilów w obu trybach sterowania.}
+\end{figure}
+
+\subsection{Analiza zachowań (Qualitative Analysis)}
+
+Analiza przebiegu symulacji wykazała fundamentalne różnice w strategii:
+
+\begin{itemize}
+    \item \textbf{Zachowanie AI (Greedy Approach):} Autonomiczny żołnierz często oddalał się od grupy cywilów, ścigając pojedynczego zombie ("tunelowe widzenie"). W tym czasie rój atakował niechronione centrum mapy. AI maksymalizowało liczbę zabójstw, ignorując kontekst obronny.
+    \item \textbf{Zachowanie Człowieka (Strategic Defense):} Operator przyjmował pozycję defensywną przy Medyku. Zamiast gonić odległych wrogów, gracz czekał, aż zombie podejdą do grupy, działając jak "żywa tarcza".
+    \item \textbf{Ochrona Medyka:} Człowiek świadomie priorytetyzował ratowanie Medyków, rozumiejąc, że mogą oni odwrócić proces infekcji. AI traktowało Medyka jak każdego innego agenta.
+\end{itemize}
+
+\newpage
+
+\section{Podsumowanie i wnioski}
+
+\begin{itemize}
+    \item \textbf{Podsumowanie:}
+          Projekt wykazał, że w systemach symulacji kryzysowej (MAS) czysta moc obliczeniowa i czas reakcji AI nie zawsze przekładają się na realizację nadrzędnego celu misji (ochrona ludności). Wprowadzenie człowieka do pętli sterowania (Human-in-the-loop) drastycznie zmieniło wynik symulacji, mimo że mechanika walki (auto-fire) pozostała niezmienna.
+
+    \item \textbf{Wnioski:}
+          \begin{enumerate}
+              \item \textbf{Wyższość strategii nad refleksem:} Mimo że AI wyeliminowało więcej zombie (wyższa agresja), to człowiek zapewnił wyższą przeżywalność cywilów. Dowodzi to, że operator ludzki lepiej rozumie globalny kontekst symulacji niż agent oparty na lokalnych nagrodach.
+              \item \textbf{Rola Medyka jako mnożnika siły:} Kluczowym czynnikiem sukcesu w scenariuszu hybrydowym była świadoma ochrona Medyków przez gracza. AI nie potrafiło wywnioskować (bez explicite zaprogramowanej nagrody), że Medyk jest jednostką o wartości strategicznej.
+              \item \textbf{Synergia HMI:} Najlepsze rezultaty osiągnięto, gdy maszyna przejęła mikrozarządzanie (celowanie, pilnowanie cooldownu, idealny moment strzału), a człowiek skupił się na makrozarządzaniu (pozycjonowanie, osłona sojuszników). Potwierdza to tezę, że systemy wspomagane przez AI są skuteczniejsze niż czysto autonomiczne lub czysto manualne.
+          \end{enumerate}
+\end{itemize}
+
+\newpage
+\section{Spis literatury}
+
+\printbibliography[heading=none]
+
+\end{document}
