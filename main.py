@@ -106,6 +106,39 @@ def main():
             hint = "Control: WASD/Arrows move, C toggles AI" if control_enabled else "AI active: press C to take control"
             hint_surface = font.render(hint, True, (200, 200, 255))
             screen.blit(hint_surface, (10, 25))
+
+        # Bottom-right cooldown HUD for player soldier
+        if player_soldier and player_soldier.is_alive:
+            current_time = pygame.time.get_ticks()
+            time_since_shot = current_time - player_soldier.last_kill_time
+            fill_ratio = max(0.0, min(1.0, time_since_shot / player_soldier.KILL_COOLDOWN))
+            remaining_ms = max(0, player_soldier.KILL_COOLDOWN - time_since_shot)
+
+            panel_w, panel_h = 160, 20
+            margin = 8
+            panel_x = WINDOW_SIZE - panel_w - margin
+            panel_y = WINDOW_SIZE + 40 - panel_h - margin
+
+            # Panel background and border
+            pygame.draw.rect(screen, (40, 40, 40), (panel_x, panel_y, panel_w, panel_h))
+            pygame.draw.rect(screen, (120, 120, 120), (panel_x, panel_y, panel_w, panel_h), width=1)
+
+            # Fill bar
+            fill_w = int(panel_w * fill_ratio)
+            bar_color = (0, 200, 200) if fill_ratio < 1.0 else (0, 220, 0)
+            if fill_w > 0:
+                pygame.draw.rect(screen, bar_color, (panel_x + 1, panel_y + 1, fill_w - 2 if fill_w >= 2 else fill_w, panel_h - 2))
+
+            # Label text
+            if fill_ratio >= 1.0:
+                label = "Weapon: Ready"
+            else:
+                label = f"Cooldown: {remaining_ms/1000:.1f}s"
+            label_surface = font.render(label, True, (230, 230, 230))
+            # Center text in panel
+            text_x = panel_x + (panel_w - label_surface.get_width()) // 2
+            text_y = panel_y + (panel_h - label_surface.get_height()) // 2
+            screen.blit(label_surface, (text_x, text_y))
             
         pygame.display.flip()
         clock.tick()
