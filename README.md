@@ -11,6 +11,7 @@ A Pygame-based simulation with five types of characters interacting on a 256x256
   - **Infected** (Orange) - Transitional state that eventually transforms into zombies
   - **Medics** (Red) - Support units that heal infected characters back to their previous type
   - **Soldiers** (Yellow) - Combat specialists that eliminate nearby zombies
+    - Player-controlled Soldier is highlighted in cyan when under manual control
 
 - **Game Mechanics:**
   - 256x256 grid with variable cell size (4px default)
@@ -38,7 +39,9 @@ python main.py
 
 ## Controls
 
-- Close the window to exit the simulation
+- Movement: Control one Soldier with WASD or Arrow keys (cyan)
+- Toggle AI: Press `C` to toggle player control on/off (reverts to yellow)
+- Exit: Close the window to exit the simulation
 
 ## Configuration
 

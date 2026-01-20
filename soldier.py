@@ -27,6 +27,7 @@ class Soldier(Character):
         super().__init__(x, y, grid)
         self.last_kill_time = 0
         self.prev_dist = float('inf')
+        self.is_player_controlled = False
 
 
     def get_target_vector(self):

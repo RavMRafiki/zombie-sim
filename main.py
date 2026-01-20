@@ -26,6 +26,14 @@ def main():
     grid = Grid(num_zombies=30, num_humans=40, num_infected=0, num_medics=10, num_soldiers=20)
     font = pygame.font.Font(None, 24)
     
+    # Pick one Soldier for player control
+    player_soldier = next((c for c in grid.characters if isinstance(c, Soldier)), None)
+    control_enabled = True if player_soldier else False
+    if player_soldier:
+        player_soldier.is_player_controlled = True
+        # Highlight player-controlled soldier with a different color (cyan)
+        player_soldier.color = (0, 255, 255)
+    
     running = True
     i = 0
     print("Starting simulation...")
@@ -33,13 +41,35 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            elif event.type == pygame.KEYDOWN:
+                # Toggle player control on/off
+                if event.key == pygame.K_c and player_soldier:
+                    control_enabled = not control_enabled
+                    player_soldier.is_player_controlled = control_enabled
+                    # Switch color based on control state
+                    player_soldier.color = (0, 255, 255) if control_enabled else COLOR_SOLIDIER
 
         if i % 10 == 0:
             print(f"Frame {i}")
         i += 1
         global_map = grid.get_global_map_matrix()
         
-        update_game_logic(grid, global_map)
+        # Read player input and map to action codes
+        player_action = None
+        if control_enabled and player_soldier and player_soldier.is_alive:
+            keys = pygame.key.get_pressed()
+            if keys[pygame.K_w] or keys[pygame.K_UP]:
+                player_action = 0
+            elif keys[pygame.K_s] or keys[pygame.K_DOWN]:
+                player_action = 1
+            elif keys[pygame.K_a] or keys[pygame.K_LEFT]:
+                player_action = 2
+            elif keys[pygame.K_d] or keys[pygame.K_RIGHT]:
+                player_action = 3
+            else:
+                player_action = 4  # wait/no move
+        
+        update_game_logic(grid, global_map, player_soldier=player_soldier, player_action=player_action)
         
         # Draw
         screen.fill(COLOR_BACKGROUND)
@@ -70,13 +100,19 @@ def main():
             
             screen.blit(text_surface, (current_x + icon_size + spacing, y_pos + 2))
             current_x += icon_size + spacing + text_surface.get_width() + group_spacing
+        
+        # Player control hint
+        if player_soldier:
+            hint = "Control: WASD/Arrows move, C toggles AI" if control_enabled else "AI active: press C to take control"
+            hint_surface = font.render(hint, True, (200, 200, 255))
+            screen.blit(hint_surface, (10, 25))
             
         pygame.display.flip()
         clock.tick()
     
     pygame.quit()
 
-def update_game_logic(grid, global_map):
+def update_game_logic(grid, global_map, player_soldier=None, player_action=None):
     """
     To zastępuje twoje proste `grid.update()`.
     Tutaj łączymy stan gry z sieciami neuronowymi.
@@ -107,7 +143,11 @@ def update_game_logic(grid, global_map):
         elif isinstance(char, Human):
             action = human_agent.get_action(current_state)
         elif isinstance(char, Soldier):
-            action = soldier_agent.get_action(current_state)
+            # Override with player input if controlled soldier
+            if getattr(char, "is_player_controlled", False) and player_soldier is char and player_action is not None:
+                action = player_action
+            else:
+                action = soldier_agent.get_action(current_state)
         elif isinstance(char, Medic):
             # Medyk nie używa sieci neuronowej, tylko swojego algorytmu
             action = char.get_autonomous_action()
