@@ -26,6 +26,11 @@ def main():
     grid = Grid(num_zombies=30, num_humans=40, num_infected=0, num_medics=10, num_soldiers=20)
     font = pygame.font.Font(None, 24)
     
+    # Game state management
+    game_state = "menu"  # menu | running | gameover_dead | gameover_win
+    final_kills = 0
+    final_humans = 0
+    
     # Pick one Soldier for player control
     player_soldier = next((c for c in grid.characters if isinstance(c, Soldier)), None)
     control_enabled = True if player_soldier else False
@@ -42,40 +47,108 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.KEYDOWN:
-                # Toggle player control on/off
-                if event.key == pygame.K_c and player_soldier:
-                    control_enabled = not control_enabled
-                    player_soldier.is_player_controlled = control_enabled
-                    # Switch color based on control state
-                    player_soldier.color = (0, 255, 255) if control_enabled else COLOR_SOLIDIER
+                if game_state == "menu":
+                    # Any key starts the game (Space/Enter recommended)
+                    if event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                        game_state = "running"
+                elif game_state.startswith("gameover"):
+                    # Restart with R
+                    if event.key == pygame.K_r:
+                        grid = Grid(num_zombies=30, num_humans=40, num_infected=0, num_medics=10, num_soldiers=20)
+                        player_soldier = next((c for c in grid.characters if isinstance(c, Soldier)), None)
+                        control_enabled = True if player_soldier else False
+                        if player_soldier:
+                            player_soldier.is_player_controlled = True
+                            player_soldier.color = (0, 255, 255)
+                        final_kills = 0
+                        final_humans = 0
+                        game_state = "running"
+                    # Quit with Q or Esc
+                    elif event.key in (pygame.K_q, pygame.K_ESCAPE):
+                        running = False
+                else:
+                    # Toggle player control on/off during gameplay
+                    if event.key == pygame.K_c and player_soldier:
+                        control_enabled = not control_enabled
+                        player_soldier.is_player_controlled = control_enabled
+                        # Switch color based on control state
+                        player_soldier.color = (0, 255, 255) if control_enabled else COLOR_SOLIDIER
 
         if i % 10 == 0:
             print(f"Frame {i}")
         i += 1
-        global_map = grid.get_global_map_matrix()
-        
-        # Read player input and map to action codes
-        player_action = None
-        if control_enabled and player_soldier and player_soldier.is_alive:
-            keys = pygame.key.get_pressed()
-            if keys[pygame.K_w] or keys[pygame.K_UP]:
-                player_action = 0
-            elif keys[pygame.K_s] or keys[pygame.K_DOWN]:
-                player_action = 1
-            elif keys[pygame.K_a] or keys[pygame.K_LEFT]:
-                player_action = 2
-            elif keys[pygame.K_d] or keys[pygame.K_RIGHT]:
-                player_action = 3
-            else:
-                player_action = 4  # wait/no move
-        
-        update_game_logic(grid, global_map, player_soldier=player_soldier, player_action=player_action)
-        
         # Draw
         screen.fill(COLOR_BACKGROUND)
-        grid.draw(screen, offset_y=40)
         
-        # Draw stats
+        if game_state == "menu":
+            # Start screen
+            title = pygame.font.Font(None, 36).render("Zombie Outbreak Simulation", True, (255, 255, 255))
+            subtitle = font.render("Press Space or Enter to start", True, (200, 200, 200))
+            info1 = font.render("Control one Soldier (cyan). WASD/Arrows move.", True, (200, 200, 255))
+            info2 = font.render("Press C to toggle AI control.", True, (200, 200, 255))
+            screen.blit(title, ((WINDOW_SIZE - title.get_width()) // 2, (WINDOW_SIZE - title.get_height()) // 2 - 40))
+            screen.blit(subtitle, ((WINDOW_SIZE - subtitle.get_width()) // 2, (WINDOW_SIZE - subtitle.get_height()) // 2))
+            screen.blit(info1, ((WINDOW_SIZE - info1.get_width()) // 2, (WINDOW_SIZE - info1.get_height()) // 2 + 30))
+            screen.blit(info2, ((WINDOW_SIZE - info2.get_width()) // 2, (WINDOW_SIZE - info2.get_height()) // 2 + 55))
+        elif game_state == "running":
+            global_map = grid.get_global_map_matrix()
+            
+            # Read player input and map to action codes
+            player_action = None
+            if control_enabled and player_soldier and player_soldier.is_alive:
+                keys = pygame.key.get_pressed()
+                if keys[pygame.K_w] or keys[pygame.K_UP]:
+                    player_action = 0
+                elif keys[pygame.K_s] or keys[pygame.K_DOWN]:
+                    player_action = 1
+                elif keys[pygame.K_a] or keys[pygame.K_LEFT]:
+                    player_action = 2
+                elif keys[pygame.K_d] or keys[pygame.K_RIGHT]:
+                    player_action = 3
+                else:
+                    player_action = 4  # wait/no move
+            
+            update_game_logic(grid, global_map, player_soldier=player_soldier, player_action=player_action)
+            
+            # Draw grid and characters
+            grid.draw(screen, offset_y=40)
+            
+            # After drawing and stats, check end conditions
+            zombie_count, human_count, infected_count, medic_count, soldier_count = grid.get_stats()
+            # Player died
+            if player_soldier and not player_soldier.is_alive:
+                final_kills = getattr(player_soldier, "kills_count", 0)
+                final_humans = human_count
+                game_state = "gameover_dead"
+            # All zombies eliminated
+            elif zombie_count == 0:
+                final_kills = getattr(player_soldier, "kills_count", 0)
+                final_humans = human_count
+                game_state = "gameover_win"
+        else:
+            # Game over screens
+            grid.draw(screen, offset_y=40)
+            panel_w, panel_h = 420, 140
+            panel_x = (WINDOW_SIZE - panel_w) // 2
+            panel_y = (WINDOW_SIZE - panel_h) // 2
+            pygame.draw.rect(screen, (30, 30, 30), (panel_x, panel_y, panel_w, panel_h))
+            pygame.draw.rect(screen, (180, 180, 180), (panel_x, panel_y, panel_w, panel_h), width=2)
+            
+            if game_state == "gameover_dead":
+                title = pygame.font.Font(None, 36).render("You died", True, (255, 80, 80))
+                msg1 = font.render(f"Zombies killed: {final_kills}", True, (230, 230, 230))
+                msg2 = font.render(f"Humans alive: {final_humans}", True, (230, 230, 230))
+            else:
+                title = pygame.font.Font(None, 36).render("All zombies eliminated!", True, (80, 255, 120))
+                msg1 = font.render(f"Your kills: {final_kills}", True, (230, 230, 230))
+                msg2 = font.render(f"Humans alive: {final_humans}", True, (230, 230, 230))
+            hint = font.render("Press R to restart, Q/Esc to quit", True, (200, 200, 200))
+            screen.blit(title, (panel_x + (panel_w - title.get_width()) // 2, panel_y + 12))
+            screen.blit(msg1, (panel_x + 20, panel_y + 56))
+            screen.blit(msg2, (panel_x + 20, panel_y + 82))
+            screen.blit(hint, (panel_x + (panel_w - hint.get_width()) // 2, panel_y + 110))
+        
+        # Draw stats (top bar) when running; show counts even on menu/over for context
         zombie_count, human_count, infected_count, medic_count, soldier_count = grid.get_stats()
         stats_data = [
             ("Zombie", zombie_count, COLOR_ZOMBIE),
@@ -102,13 +175,13 @@ def main():
             current_x += icon_size + spacing + text_surface.get_width() + group_spacing
         
         # Player control hint
-        if player_soldier:
+        if player_soldier and game_state == "running":
             hint = "Control: WASD/Arrows move, C toggles AI" if control_enabled else "AI active: press C to take control"
             hint_surface = font.render(hint, True, (200, 200, 255))
             screen.blit(hint_surface, (10, 25))
 
-        # Bottom-right cooldown HUD for player soldier
-        if player_soldier and player_soldier.is_alive:
+        # Bottom-right cooldown HUD for player soldier (during gameplay)
+        if game_state == "running" and player_soldier and player_soldier.is_alive:
             current_time = pygame.time.get_ticks()
             time_since_shot = current_time - player_soldier.last_kill_time
             fill_ratio = max(0.0, min(1.0, time_since_shot / player_soldier.KILL_COOLDOWN))

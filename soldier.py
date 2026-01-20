@@ -28,6 +28,7 @@ class Soldier(Character):
         self.last_kill_time = 0
         self.prev_dist = float('inf')
         self.is_player_controlled = False
+        self.kills_count = 0
 
 
     def get_target_vector(self):
@@ -128,6 +129,10 @@ class Soldier(Character):
                         
                         self.last_kill_time = current_time
                         self.broadcast_kill((character.x, character.y))
+                        # Zliczanie fragów (tylko Zombie)
+                        from zombie import Zombie as ZombieClass
+                        if isinstance(character, ZombieClass):
+                            self.kills_count += 1
                         
                         step_reward += 10.0 # FRAG
                         # print(f"Soldier {id(self)} killed a Zombie!")
