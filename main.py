@@ -8,7 +8,7 @@ from soldier import Soldier
 from zombie import Zombie
 from human import Human
 from medic import Medic
-from constants import WINDOW_SIZE, COLOR_BACKGROUND, COLOR_ZOMBIE, COLOR_HUMAN, COLOR_INFECTED, COLOR_MEDIC, COLOR_SOLIDIER
+from constants import WINDOW_SIZE, CELL_SIZE, COLOR_BACKGROUND, COLOR_ZOMBIE, COLOR_HUMAN, COLOR_INFECTED, COLOR_MEDIC, COLOR_SOLIDIER
 
 pygame.init()
 
@@ -28,6 +28,8 @@ def main():
     
     # Game state management
     game_state = "menu"  # menu | running | gameover_dead | gameover_win
+    game_start_time = None
+    player_highlight_end_time = None
     final_kills = 0
     final_humans = 0
     
@@ -51,6 +53,8 @@ def main():
                     # Any key starts the game (Space/Enter recommended)
                     if event.key in (pygame.K_SPACE, pygame.K_RETURN):
                         game_state = "running"
+                        game_start_time = pygame.time.get_ticks()
+                        player_highlight_end_time = game_start_time + 5000
                 elif game_state.startswith("gameover"):
                     # Restart with R
                     if event.key == pygame.K_r:
@@ -63,6 +67,8 @@ def main():
                         final_kills = 0
                         final_humans = 0
                         game_state = "running"
+                        game_start_time = pygame.time.get_ticks()
+                        player_highlight_end_time = game_start_time + 5000
                     # Quit with Q or Esc
                     elif event.key in (pygame.K_q, pygame.K_ESCAPE):
                         running = False
@@ -73,6 +79,9 @@ def main():
                         player_soldier.is_player_controlled = control_enabled
                         # Switch color based on control state
                         player_soldier.color = (0, 255, 255) if control_enabled else COLOR_SOLIDIER
+                        # When switching back to player control, re-show highlight for 5s
+                        if control_enabled:
+                            player_highlight_end_time = pygame.time.get_ticks() + 5000
 
         if i % 10 == 0:
             print(f"Frame {i}")
@@ -112,6 +121,23 @@ def main():
             
             # Draw grid and characters
             grid.draw(screen, offset_y=40)
+
+            # Highlight player for 5s after start or when control re-enabled (fade-out)
+            if player_soldier and control_enabled:
+                current_time = pygame.time.get_ticks()
+                if player_highlight_end_time is not None and current_time < player_highlight_end_time:
+                    center_x = player_soldier.x * CELL_SIZE + (CELL_SIZE // 2)
+                    center_y = player_soldier.y * CELL_SIZE + 40 + (CELL_SIZE // 2)
+                    radius = int(CELL_SIZE * 5)
+                    # Compute fading alpha based on remaining time
+                    remaining = max(0, player_highlight_end_time - current_time)
+                    fade_ratio = remaining / 5000.0
+                    alpha = max(0, min(255, int(255 * fade_ratio)))
+                    # Draw circle on a transparent surface to support alpha
+                    surf_size = radius * 2 + 6
+                    circle_surf = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
+                    pygame.draw.circle(circle_surf, (255, 0, 0, alpha), (surf_size // 2, surf_size // 2), radius, width=3)
+                    screen.blit(circle_surf, (center_x - surf_size // 2, center_y - surf_size // 2))
             
             # After drawing and stats, check end conditions
             zombie_count, human_count, infected_count, medic_count, soldier_count = grid.get_stats()
