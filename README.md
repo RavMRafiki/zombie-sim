@@ -5,12 +5,12 @@ A Pygame-based simulation with five types of characters interacting on a 256x256
 ## Features
 
 - **5 Character Types:**
-
   - **Zombies** (Green) - Aggressive hunters that infect humans and infected characters
   - **Humans** (Blue) - Defensive survivors that detect and broadcast threat information
   - **Infected** (Orange) - Transitional state that eventually transforms into zombies
   - **Medics** (Red) - Support units that heal infected characters back to their previous type
   - **Soldiers** (Yellow) - Combat specialists that eliminate nearby zombies
+    - Player-controlled Soldier is highlighted in cyan when under manual control
 
 - **Game Mechanics:**
   - 256x256 grid with variable cell size (4px default)
@@ -38,7 +38,9 @@ python main.py
 
 ## Controls
 
-- Close the window to exit the simulation
+- Movement: Control one Soldier with WASD or Arrow keys (cyan)
+- Toggle AI: Press `C` to toggle player control on/off (reverts to yellow)
+- Exit: Close the window to exit the simulation
 
 ## Configuration
 
@@ -60,22 +62,18 @@ grid = Grid(num_zombies=40, num_humans=60, num_infected=0, num_medics=16, num_so
 Each character type has customizable parameters:
 
 - **Zombie:**
-
   - `INFECTION_RANGE` - Distance to infect characters (default: 1.99 cells)
   - `INFECTION_COOLDOWN` - Time between infections (default: 5000ms)
 
 - **Human:**
-
   - `THREAT_DETECTION_RANGE` - Radius to detect zombies/infected (default: 3.0 cells)
   - `THREAT_BROADCAST_RANGE` - Radius to broadcast threat info (default: 7.0 cells)
 
 - **Infected:**
-
   - `TRANSFORMATION_TIME` - Time to transform into zombie (default: 10000ms)
   - `BROADCAST_RANGE` - Radius to broadcast infected status (default: 5.0 cells)
 
 - **Medic:**
-
   - `HEAL_RANGE` - Distance to heal infected (default: 2.0 cells)
   - `HEAL_TIME` - Cooldown between heals (default: 20000ms)
 
@@ -86,7 +84,6 @@ Each character type has customizable parameters:
 ## Architecture
 
 - `Character` - Base class with movement, signal system, and core mechanics
-
   - `Zombie` - Hunts and infects other characters
   - `Human` - Detects threats and broadcasts warnings
   - `Infected` - Transitional state between Human and Zombie
