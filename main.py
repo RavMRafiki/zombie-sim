@@ -152,7 +152,9 @@ def main():
                 final_humans = human_count
                 game_state = "gameover_win"
         else:
-            # Game over screens
+            # Game over screens with simulation continuing underneath
+            global_map = grid.get_global_map_matrix()
+            update_game_logic(grid, global_map, player_soldier=player_soldier, player_action=None)
             grid.draw(screen, offset_y=40)
             panel_w, panel_h = 420, 140
             panel_x = (WINDOW_SIZE - panel_w) // 2
