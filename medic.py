@@ -3,7 +3,7 @@
 import math
 import pygame
 from character import Character
-from constants import MOVE_INTERVAL
+from constants import MOVE_INTERVAL, COLOR_MEDIC
 from pathfinding import a_star_search
 
 
@@ -11,7 +11,7 @@ class Medic(Character):
     """Medic character - coordinates via radio signals"""
     
     char_type_name = "Medic"
-    color = (255, 255, 255)
+    color = COLOR_MEDIC
     move_speed = MOVE_INTERVAL
     
     HEAL_RANGE = 1.5

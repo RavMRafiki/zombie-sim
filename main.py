@@ -1,6 +1,9 @@
 """Zombie Simulator - Main entry point"""
 
 import pygame
+import sys
+import os
+import argparse
 from DQN.learn import DQNAgent
 from grid import Grid
 from infected import Infected
@@ -10,11 +13,20 @@ from human import Human
 from medic import Medic
 from constants import WINDOW_SIZE, COLOR_BACKGROUND, COLOR_ZOMBIE, COLOR_HUMAN, COLOR_INFECTED, COLOR_MEDIC, COLOR_SOLIDIER
 
+# --- 2. Obsługa argumentów command line ---
+parser = argparse.ArgumentParser(description='Zombie Outbreak Simulation')
+parser.add_argument('--learn', action='store_true', help='Włącz tryb uczenia (trening sieci)')
+args = parser.parse_args()
+
+IS_TRAINING = args.learn # True jeśli podano --learn, False jeśli nie
+
+print(f"--- SIMULATION MODE: {'TRAINING' if IS_TRAINING else 'INFERENCE (PLAYING)'} ---")
+os.environ['SDL_VIDEO_WINDOW_POS'] = "100,100"
 pygame.init()
 
-zombie_agent = DQNAgent(input_shape=(4, 11, 11))
-human_agent = DQNAgent(input_shape=(4, 11, 11), vector_size=4)
-soldier_agent = DQNAgent(input_shape=(4, 11, 11), vector_size=3)
+zombie_agent = DQNAgent(input_shape=(4, 11, 11), vector_size=2, agent_name="zombie", training_mode=IS_TRAINING)
+human_agent  = DQNAgent(input_shape=(4, 11, 11), vector_size=4, agent_name="human",  training_mode=IS_TRAINING)
+soldier_agent= DQNAgent(input_shape=(4, 11, 11), vector_size=3, agent_name="soldier", training_mode=IS_TRAINING)
 
 def main():
     """Main game loop"""
@@ -23,7 +35,7 @@ def main():
     pygame.display.set_caption("Zombie Outbreak Simulation")
     clock = pygame.time.Clock()
     
-    grid = Grid(num_zombies=30, num_humans=40, num_infected=0, num_medics=10, num_soldiers=20)
+    grid = Grid(num_zombies=38, num_humans=45, num_infected=0, num_medics=10, num_soldiers=25)
     font = pygame.font.Font(None, 24)
     
     running = True
@@ -32,6 +44,10 @@ def main():
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
+                if IS_TRAINING:
+                    zombie_agent.save_model()
+                    human_agent.save_model()
+                    soldier_agent.save_model()
                 running = False
 
         if i % 10 == 0:
@@ -72,7 +88,10 @@ def main():
             current_x += icon_size + spacing + text_surface.get_width() + group_spacing
             
         pygame.display.flip()
-        clock.tick()
+        if IS_TRAINING:
+            clock.tick(0) # Max speed
+        else:
+            clock.tick(60) # Oglądalna prędkość
     
     pygame.quit()
 
