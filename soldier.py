@@ -6,7 +6,7 @@ import pygame
 from human import Human
 from character import Character
 
-from constants import MOVE_INTERVAL
+from constants import MOVE_INTERVAL, SOLDIER_KILL_COOLDOWN_MS
 
 
 class Soldier(Character):
@@ -18,7 +18,7 @@ class Soldier(Character):
     
     # Parametry bojowe
     KILL_RANGE = 3.0
-    KILL_COOLDOWN = 5000
+    KILL_COOLDOWN = SOLDIER_KILL_COOLDOWN_MS
     SIGHT_RANGE = 5.0      # Zasięg wzroku (widzi zombie)
     BROADCAST_RANGE = 50.0  
     SIGNAL_MEMORY_TIME = 4000 # Pamięta wezwania przez 4 sekundy

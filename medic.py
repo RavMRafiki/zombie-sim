@@ -3,7 +3,7 @@
 import math
 import pygame
 from character import Character
-from constants import MOVE_INTERVAL, COLOR_MEDIC
+from constants import MOVE_INTERVAL, COLOR_MEDIC, MEDIC_HEAL_COOLDOWN_MS
 from pathfinding import a_star_search
 
 
@@ -15,7 +15,7 @@ class Medic(Character):
     move_speed = MOVE_INTERVAL
     
     HEAL_RANGE = 1.5
-    HEAL_COOLDOWN = 5000
+    HEAL_COOLDOWN = MEDIC_HEAL_COOLDOWN_MS
     VISION_RANGE = 12.0        # Zasięg wzroku
     BROADCAST_RANGE = 40.0    # Zasięg radia medycznego (szerszy niż krzyku)
     

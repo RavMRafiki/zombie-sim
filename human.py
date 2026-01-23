@@ -5,7 +5,7 @@ import random
 import numpy as np
 import pygame
 from character import Character
-from constants import MOVE_INTERVAL, GRID_SIZE
+from constants import MOVE_INTERVAL, GRID_SIZE, HUMAN_REPRO_COOLDOWN_MS
 
 
 class Human(Character):
@@ -19,7 +19,7 @@ class Human(Character):
     THREAT_DETECTION_RANGE = 4.0   # Zasięg wzroku (widzi zombie)
     THREAT_BROADCAST_RANGE = 45.0  # Zasięg krzyku (ostrzega innych)
     # Rozmnażanie
-    REPRO_COOLDOWN_MS = 60000      # Co najmniej 60s między próbami
+    REPRO_COOLDOWN_MS = HUMAN_REPRO_COOLDOWN_MS      # Co najmniej 60s między próbami
     REPRO_CHANCE = 0.2             # 20% szans po cooldownie
     ROLE_CHANCE = 0.08             # 8% szansy, że potomek ma rolę (Medic/Soldier)
     

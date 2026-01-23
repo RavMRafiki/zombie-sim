@@ -4,7 +4,7 @@ import math
 import numpy as np
 import pygame
 from character import Character
-from constants import MOVE_INTERVAL
+from constants import MOVE_INTERVAL, ZOMBIE_INFECTION_COOLDOWN_MS, ZOMBIE_STARVATION_TIME_MS
 
 
 
@@ -17,12 +17,12 @@ class Zombie(Character):
     
     # Parametry
     INFECTION_RANGE = 1.99
-    INFECTION_COOLDOWN = 5000
+    INFECTION_COOLDOWN = ZOMBIE_INFECTION_COOLDOWN_MS
     SIGHT_RANGE = 7.2       # Zasięg wzroku (krótki)
     SIEGE_RANGE = 2.5 # Zasięg "Oblężenia" (tłok przy ofierze)
     BROADCAST_RANGE = 65.0  # Zasięg "jęku" (sygnalizowanie innym zombie)
     SIGNAL_MEMORY_TIME = 3000 # Pamięta sygnały przez 3 sekundy
-    STARVATION_TIME = 60000   # Umiera, jeśli długo nikogo nie zarazi (ms)
+    STARVATION_TIME = ZOMBIE_STARVATION_TIME_MS   # Umiera, jeśli długo nikogo nie zarazi (ms)
     
     def __init__(self, x, y, grid=None):
         super().__init__(x, y, grid)
