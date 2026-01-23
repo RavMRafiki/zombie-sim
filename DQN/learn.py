@@ -57,7 +57,10 @@ class DQNAgent:
         """Wczytuje wagi modelu jeśli plik istnieje"""
         if os.path.exists(self.checkpoint_file):
             print(f"Loading existing model for {self.agent_name}!")
-            self.policy_net.load_state_dict(torch.load(self.checkpoint_file))
+            # Ensure checkpoints saved on CUDA can load on CPU-only machines
+            self.policy_net.load_state_dict(
+                torch.load(self.checkpoint_file, map_location=self.device)
+            )
             # Ważne: Jeśli wczytujemy wytrenowany model, zmniejszamy eksplorację
             # żeby agent korzystał z wiedzy, a nie działał losowo.
             self.epsilon = self.epsilon_min 
