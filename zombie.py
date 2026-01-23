@@ -22,11 +22,14 @@ class Zombie(Character):
     SIEGE_RANGE = 2.5 # Zasięg "Oblężenia" (tłok przy ofierze)
     BROADCAST_RANGE = 65.0  # Zasięg "jęku" (sygnalizowanie innym zombie)
     SIGNAL_MEMORY_TIME = 3000 # Pamięta sygnały przez 3 sekundy
+    STARVATION_TIME = 60000   # Umiera, jeśli długo nikogo nie zarazi (ms)
     
     def __init__(self, x, y, grid=None):
         super().__init__(x, y, grid)
         self.last_infection_time = 0
         self.prev_dist = float('inf')
+        # Liczymy "ostatnie jedzenie" od startu, by dać im czas na polowanie
+        self.last_feed_time = pygame.time.get_ticks()
         
 
     def get_target_vector(self):
@@ -94,6 +97,15 @@ class Zombie(Character):
         
         current_time = pygame.time.get_ticks()
         step_reward = 0 
+
+        # GŁÓD: jeśli za długo bez infekcji -> zombie umiera
+        if current_time - getattr(self, 'last_feed_time', 0) > self.STARVATION_TIME:
+            self.is_alive = False
+            # Bezpieczne usunięcie z planszy
+            if self in self.grid.characters:
+                self.grid.characters.remove(self)
+            # Lekka kara, by uczyć sieć unikać głodu
+            return step_reward - 5.0
 
         # Musimy odtworzyć logikę znajdowania celu, aby obliczyć nagrodę
         # (Ale bez broadcastu, żeby nie dublować)
@@ -167,6 +179,8 @@ class Zombie(Character):
                         step_reward += 10 
                         print(f"Zombie {id(self)} zaraził człowieka! Nagroda +10")
                         self.last_infection_time = current_time
+                        # Zaktualizuj też czas ostatniego "posiłku"
+                        self.last_feed_time = current_time
                         break 
 
         return step_reward

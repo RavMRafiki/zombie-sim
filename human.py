@@ -1,10 +1,11 @@
 """Human character class"""
 
 import math
+import random
 import numpy as np
 import pygame
 from character import Character
-from constants import MOVE_INTERVAL
+from constants import MOVE_INTERVAL, GRID_SIZE
 
 
 class Human(Character):
@@ -17,10 +18,15 @@ class Human(Character):
     # Zasięgi
     THREAT_DETECTION_RANGE = 4.0   # Zasięg wzroku (widzi zombie)
     THREAT_BROADCAST_RANGE = 45.0  # Zasięg krzyku (ostrzega innych)
+    # Rozmnażanie
+    REPRO_COOLDOWN_MS = 60000      # Co najmniej 60s między próbami
+    REPRO_CHANCE = 0.2             # 20% szans po cooldownie
+    ROLE_CHANCE = 0.08             # 8% szansy, że potomek ma rolę (Medic/Soldier)
     
     def __init__(self, x, y, grid=None):
         super().__init__(x, y, grid)
         self.prev_min_dist = float('inf')
+        self.last_reproduction_time = pygame.time.get_ticks()
 
     def get_target_vector(self):
         """
@@ -146,11 +152,54 @@ class Human(Character):
         else:
             self.prev_min_dist = float('inf')
         
-        # D. Nagroda za przeżycie
+        # D. Rozmnażanie (na cooldown, z małą szansą na rolę)
+        self._maybe_reproduce()
+
+        # E. Nagroda za przeżycie
         if self.is_alive:
             return step_reward + 0.1 
         
         return step_reward
+
+    def _maybe_reproduce(self):
+        """Próba stworzenia nowej postaci w sąsiednim polu (po cooldownie)."""
+        current_time = pygame.time.get_ticks()
+        if current_time - getattr(self, 'last_reproduction_time', 0) < self.REPRO_COOLDOWN_MS:
+            return
+
+        if random.random() > self.REPRO_CHANCE:
+            return
+
+        # Sąsiednie pola 4-kierunkowe
+        neighbors = [(self.x, self.y - 1), (self.x, self.y + 1), (self.x - 1, self.y), (self.x + 1, self.y)]
+        # Filtr w granicach i nie zajęte
+        candidates = []
+        for nx, ny in neighbors:
+            if 0 <= nx < GRID_SIZE and 0 <= ny < GRID_SIZE:
+                occupied = any((c.x == nx and c.y == ny) for c in self.grid.characters)
+                if not occupied:
+                    candidates.append((nx, ny))
+
+        if not candidates:
+            return
+
+        spawn_x, spawn_y = random.choice(candidates)
+
+        # Losowa rola z niską szansą
+        child = None
+        if random.random() < self.ROLE_CHANCE:
+            # 50/50 Medic lub Soldier
+            if random.random() < 0.5:
+                from medic import Medic
+                child = Medic(spawn_x, spawn_y, self.grid)
+            else:
+                from soldier import Soldier
+                child = Soldier(spawn_x, spawn_y, self.grid)
+        else:
+            child = Human(spawn_x, spawn_y, self.grid)
+
+        self.grid.characters.append(child)
+        self.last_reproduction_time = current_time
     
     def broadcast_threat_info(self, threats):
         """Broadcast threat information to nearby characters"""

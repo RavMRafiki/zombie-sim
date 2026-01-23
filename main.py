@@ -97,97 +97,109 @@ def main():
 
 def update_game_logic(grid, global_map):
     """
-    To zastępuje twoje proste `grid.update()`.
-    Tutaj łączymy stan gry z sieciami neuronowymi.
+    Dwuetapowa aktualizacja: najpierw wszyscy liczą akcję, potem wykonują ruchy
+    i akcje, a na końcu renderujemy. Dzięki temu nowa klatka pojawia się po
+    wyznaczeniu ruchu przez wszystkie jednostki.
     """
-    
-    # Przechodzimy przez każdą postać
-    for char in grid.characters:
-        
+
+    # 1) FAZA DECYZYJNA — każdy liczy akcję na tej samej obserwacji
+    decisions = []  # (char, current_state, action)
+    for char in list(grid.characters):
         if isinstance(char, Infected):
-            char.act()
-            continue # Infected nie używają sieci neuronowej
+            # Infected nie planują decyzji DQN
+            decisions.append((char, None, None))
+            continue
 
-        char.process_signals()  # Przetwarzamy sygnały (usuwamy stare)
-        # 1. OBSERWACJA (State)
-        # Musisz napisać metodę get_observation(), która zwraca 4x11x11
-        # 1. Pobierz obserwację wizualną
+        char.process_signals()
+
         visual_state = char.get_observation(global_map)
-
-        # 2. Pobierz wektor celu (NOWOŚĆ)
-        vector_state = char.get_target_vector() 
-
-        # 3. Złóż w jeden stan
+        vector_state = char.get_target_vector()
         current_state = (visual_state, vector_state)
-        
-        # 2. DECYZJA (Action)
+
         if isinstance(char, Zombie):
             action = zombie_agent.get_action(current_state)
-        elif isinstance(char, Human):
+        elif isinstance(char, Human) and not isinstance(char, Soldier):
             action = human_agent.get_action(current_state)
         elif isinstance(char, Soldier):
             action = soldier_agent.get_action(current_state)
         elif isinstance(char, Medic):
-            # Medyk nie używa sieci neuronowej, tylko swojego algorytmu
             action = char.get_autonomous_action()
         else:
-            action = 4 # Czekaj (dla innych klas)
-            
-        # 3. RUCH I INTERAKCJA (Step)
-        # Zmieniamy metodę move, żeby przyjmowała akcję (0=Góra, 1=Dół, itd.)
-        move_success = char.move(action) 
-        
-        # Pobieramy nagrodę z interakcji (infekcja, przeżycie)
-        reward = 0
+            action = 4
+
+        decisions.append((char, current_state, action))
+
+    # 2) FAZA RUCHU — wykonujemy ruchy zgodnie z policzonymi akcjami
+    move_results = {}  # char -> bool
+    for char, _, action in decisions:
+        if action is None:
+            continue
+        move_results[char] = char.move(action)
+
+    # 3) FAZA AKCJI I NAGRÓD — liczymy act() i rewardy już po ruchach
+    pending = []  # (agent, char, current_state, action, reward, done)
+
+    for char, current_state, action in decisions:
+        if isinstance(char, Infected):
+            char.act()
+            continue
+
+        reward = 0.0
+        done = False
+        move_success = move_results.get(char, True)
+
         if not move_success:
             if isinstance(char, Zombie):
-                reward -= 0.1 # Kara za uderzenie w krawędź
-            elif isinstance(char, Human):
-                reward -= 0.5 
+                reward -= 0.1
+            elif isinstance(char, Human) and not isinstance(char, Soldier):
+                reward -= 0.5
             elif isinstance(char, Soldier):
                 reward -= 0.1
-        done = False # Czy postać "skończyła grę" (zginęła)
-        
+
         if isinstance(char, Medic):
-             char.act()
-        if isinstance(char, Zombie):
+            char.act()
+        elif isinstance(char, Zombie):
             if action == 4:
-                # Sprawdzamy czy ma kogoś blisko
                 if hasattr(char, 'prev_dist') and char.prev_dist < char.SIEGE_RANGE:
-                    pass # Nie karzemy za stanie, jeśli stoi przy ofierze (atakuje/czeka w kolejce)
+                    pass
                 else:
-                    reward -= 0.5 # Kara za stanie bezczynnie daleko od ofiar
-            reward += char.act() # Tu wróci +10 jeśli zaraził
-            reward -= 0.05 # Kara za czas (pogania zombie)
+                    reward -= 0.5
+            reward += char.act()
+            reward -= 0.05
+            if not char.is_alive:
+                reward -= 10
+                done = True
         elif isinstance(char, Soldier):
-            reward += char.act() # Tu wróci +0.5 za przeżycie i +10 za zabicie
+            reward += char.act()
             if not char.is_alive:
                 reward = -10
                 done = True
         elif isinstance(char, Human):
-            reward += char.act() # Tu wróci +0.1 za przeżycie
-            if not char.is_alive: # Ustalone w get_infected()
+            reward += char.act()
+            if not char.is_alive:
                 reward = -10
                 done = True
-        
-        # 4. NOWY STAN (Next State)
-        new_visual = char.get_observation(global_map)
+
+        agent = None
+        if isinstance(char, Soldier):
+            agent = soldier_agent
+        elif isinstance(char, Zombie):
+            agent = zombie_agent
+        elif isinstance(char, Human) and not isinstance(char, Soldier):
+            agent = human_agent
+
+        if agent is not None and current_state is not None:
+            pending.append((agent, char, current_state, action, reward, done))
+
+    # 4) NEXT STATE — jedna, spójna mapa po wszystkich ruchach i akcjach
+    global_map_next = grid.get_global_map_matrix()
+
+    for agent, char, current_state, action, reward, done in pending:
+        new_visual = char.get_observation(global_map_next)
         new_vector = char.get_target_vector()
         next_state = (new_visual, new_vector)
-        
-        # 5. NAUKA (Store & Learn)
-        if isinstance(char, Soldier):
-            soldier_agent.memory.push(current_state, action, reward, next_state, done)
-            soldier_agent.learn()
-            
-        elif isinstance(char, Zombie):
-            zombie_agent.memory.push(current_state, action, reward, next_state, done)
-            zombie_agent.learn()
-            
-        elif isinstance(char, Human):
-            # Ważne: Ten warunek musi być PO Soldierze, jeśli Soldier dziedziczy po Human!
-            human_agent.memory.push(current_state, action, reward, next_state, done)
-            human_agent.learn()
+        agent.memory.push(current_state, action, reward, next_state, done)
+        agent.learn()
 
 if __name__ == "__main__":
     main()
