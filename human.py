@@ -5,7 +5,14 @@ import random
 import numpy as np
 import pygame
 from character import Character
-from constants import MOVE_INTERVAL, GRID_SIZE, HUMAN_REPRO_COOLDOWN_MS
+from constants import (
+    MOVE_INTERVAL,
+    GRID_SIZE,
+    HUMAN_REPRO_COOLDOWN_MS,
+    HUMAN_REPRO_CHANCE,
+    HUMAN_ROLE_CHANCE,
+    HUMAN_REPRO_RANGE,
+)
 
 
 class Human(Character):
@@ -20,8 +27,8 @@ class Human(Character):
     THREAT_BROADCAST_RANGE = 45.0  # Zasięg krzyku (ostrzega innych)
     # Rozmnażanie
     REPRO_COOLDOWN_MS = HUMAN_REPRO_COOLDOWN_MS      # Co najmniej 60s między próbami
-    REPRO_CHANCE = 0.2             # 20% szans po cooldownie
-    ROLE_CHANCE = 0.08             # 8% szansy, że potomek ma rolę (Medic/Soldier)
+    REPRO_CHANCE = HUMAN_REPRO_CHANCE                 # 20% szans po cooldownie
+    ROLE_CHANCE = HUMAN_ROLE_CHANCE                   # 8% szansy na rolę (Medic/Soldier)
     
     def __init__(self, x, y, grid=None):
         super().__init__(x, y, grid)
@@ -170,15 +177,19 @@ class Human(Character):
         if random.random() > self.REPRO_CHANCE:
             return
 
-        # Sąsiednie pola 4-kierunkowe
-        neighbors = [(self.x, self.y - 1), (self.x, self.y + 1), (self.x - 1, self.y), (self.x + 1, self.y)]
-        # Filtr w granicach i nie zajęte
+        # Szukaj wolnych pól w promieniu HUMAN_REPRO_RANGE (Chebyshev radius)
         candidates = []
-        for nx, ny in neighbors:
-            if 0 <= nx < GRID_SIZE and 0 <= ny < GRID_SIZE:
-                occupied = any((c.x == nx and c.y == ny) for c in self.grid.characters)
-                if not occupied:
-                    candidates.append((nx, ny))
+        r = HUMAN_REPRO_RANGE
+        for dx in range(-r, r + 1):
+            for dy in range(-r, r + 1):
+                if dx == 0 and dy == 0:
+                    continue
+                nx = self.x + dx
+                ny = self.y + dy
+                if 0 <= nx < GRID_SIZE and 0 <= ny < GRID_SIZE:
+                    occupied = any((c.x == nx and c.y == ny) for c in self.grid.characters)
+                    if not occupied:
+                        candidates.append((nx, ny))
 
         if not candidates:
             return
