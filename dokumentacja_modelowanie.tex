@@ -1,0 +1,186 @@
+\documentclass[12pt, a4paper]{article}
+
+% --- Pakiety podstawowe ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[polish]{babel}
+\usepackage{polski}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{amsmath, amsfonts, amssymb}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{caption}
+\usepackage{subcaption}
+
+% --- Konfiguracja marginesów ---
+\geometry{
+ a4paper,
+ total={170mm,257mm},
+ left=20mm,
+ top=20mm,
+}
+
+% --- Konfiguracja wyświetlania kodu (opcjonalnie) ---
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegray},
+    keywordstyle=\color{blue},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{green!50!black},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+\lstset{style=mystyle}
+
+% --- Dane dokumentu ---
+\title{\textbf{Symulacja rozprzestrzeniania się epidemii zombie}\\
+\large Projekt z przedmiotu Modelowanie Matematyczne}
+\author{Patryk Buchtyar, Rafał Maciończyk, Michał Moryc}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+    Niniejszy projekt przedstawia symulację wieloagentową modelującą interakcje między czterema grupami: ludźmi, zombie, medykami oraz żołnierzami. Celem pracy jest analiza dynamiki populacji w zamkniętym środowisku oraz ocena skuteczności algorytmów uczenia ze wzmocnieniem (Deep Q-Learning) w sterowaniu zachowaniem agentów. Porównano wyniki symulacji z klasycznymi modelami matematycznymi, takimi jak model Lotki-Volterry.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\section{Wstęp}
+W tym rozdziale należy opisać cel projektu. Dlaczego symulujemy zombie? (np.
+jako metaforę agresywnej epidemii). Jakie są założenia środowiska (siatka, czas
+dyskretny).
+
+\section{Opis Modelu Symulacji}
+Symulacja odbywa się w środowisku dyskretnym. Wyróżniamy cztery klasy agentów,
+z których każda posiada unikalne mechaniki:
+
+\begin{itemize}
+    \item \textbf{Ludzie:} Ich celem jest przetrwanie. Posiadają zdolność reprodukcji z prawdopodobieństwem $P_{rep} = 0.002$ na krok. Istnieje również szansa ($20\%$), że nowo narodzony człowiek przejdzie mutację społeczną i stanie się Medykiem lub Żołnierzem.
+    \item \textbf{Zombie:} Dążą do zarażenia każdego napotkanego agenta. Posiadają mechanizm głodu (starvation) – brak pożywienia przez określony czas skutkuje śmiercią agenta. Infekcja posiada czas odnowienia (cooldown).
+    \item \textbf{Żołnierze:} Ich zadaniem jest eliminacja zombie. Mechanika ataku jest ograniczona czasowo (cooldown).
+    \item \textbf{Medycy:} Agentzy specjalni, których celem jest leczenie zarażonych. Poruszają się, wykorzystując deterministyczny algorytm ścieżki (opisany w sekcji 3).
+\end{itemize}
+
+\section{Sterowanie i Algorytmy}
+
+W symulacji zastosowano podejście hybrydowe. Medycy wykorzystują klasyczne
+algorytmy przeszukiwania grafu, natomiast pozostałe klasy (Ludzie, Zombie,
+Żołnierze) są sterowane przez głębokie sieci neuronowe uczone metodą
+\textit{Deep Q-Network} (DQN).
+
+\subsection{Algorytm A* (Medycy)}
+Medycy nie wymagają procesu uczenia, ponieważ ich cel jest jasno zdefiniowany i
+statyczny. Do znajdowania najkrótszej ścieżki do najbliższego zarażonego agenta
+wykorzystano algorytm A* (A-star). Funkcja kosztu $f(n)$ zdefiniowana jest
+jako: $$ f(n) = g(n) + h(n) $$ gdzie $g(n)$ to koszt dotarcia do węzła $n$, a
+$h(n)$ to heurystyka (w tym przypadku odległość Manhattan lub Euklidesowa).
+
+\subsection{Głębokie Uczenie ze Wzmocnieniem (DQN)}
+
+[Image of convolutional neural network architecture diagram]
+
+Dla agentów sterowanych sztuczną inteligencją zastosowano algorytm Deep
+Q-Learning. Agent uczy się aproksymować funkcję wartości $Q(s, a)$, która
+określa przewidywaną sumę nagród dla podjęcia akcji $a$ w stanie $s$.
+
+\subsubsection{Architektura Sieci Neuronowej (Sensor Fusion)}
+Model decyzyjny oparty jest na architekturze typu \textit{Sensor Fusion}, która
+łączy dane wizualne (lokalne otoczenie agenta) z danymi wektorowymi (np.
+względna pozycja celu). Sieć zaimplementowana w bibliotece \texttt{PyTorch}
+składa się z dwóch gałęzi:
+
+\begin{enumerate}
+    \item \textbf{Gałąź Konwolucyjna (CNN):} Przetwarza lokalną mapę otoczenia agenta.
+          \begin{itemize}
+              \item \textbf{Wejście:} Tensor o wymiarach $(4, 11, 11)$, co odpowiada 4 kanałom (np. klatki czasowe lub typy obiektów) na siatce $11 \times 11$.
+              \item \textbf{Warstwa Conv1:} 32 filtry, kernel $3 \times 3$, padding 1, aktywacja ReLU.
+              \item \textbf{Warstwa Conv2:} 64 filtry, kernel $3 \times 3$, padding 1, aktywacja ReLU.
+              \item \textbf{Wyjście:} Spłaszczony wektor cech wizualnych o wymiarze $64 \times 11 \times 11$.
+          \end{itemize}
+
+    \item \textbf{Gałąź Wektorowa (MLP):} Przetwarza proste dane numeryczne.
+          \begin{itemize}
+              \item \textbf{Wejście:} Wektor wielkości 2 (np. $\Delta x, \Delta y$ do najbliższego celu/zagrożenia).
+              \item \textbf{Warstwa liniowa:} Transformacja do 32 cech z aktywacją ReLU.
+          \end{itemize}
+
+    \item \textbf{Fuzja i Decyzja:}
+          Cechy z obu gałęzi są konkatenowane, tworząc wspólny wektor reprezentacji stanu. Następnie przechodzą przez warstwy gęste (Fully Connected):
+          \begin{itemize}
+              \item Warstwa ukryta: 512 neuronów.
+              \item Warstwa wyjściowa: Liczba neuronów równa liczbie możliwych akcji (5),
+                    zwracająca wartości $Q$ dla każdej akcji.
+          \end{itemize}
+\end{enumerate}
+
+\subsubsection{Proces Uczenia}
+Uczenie odbywa się przy użyciu bufora doświadczeń (\textit{Replay Buffer}) o
+pojemności 10,000 próbek. Funkcja straty (Loss) to Błąd Średniokwadratowy (MSE)
+pomiędzy przewidywaną wartością Q, a wartością docelową obliczaną z równania
+Bellmana:
+
+$$ L(\theta) = \mathbb{E} \left[ \left( r + \gamma \max_{a'} Q(s', a'; \theta^{-}) - Q(s, a; \theta) \right)^2 \right] $$
+
+Gdzie:
+\begin{itemize}
+    \item $\gamma = 0.99$ (współczynnik dyskontowania),
+    \item $\theta$ to wagi sieci głównej (Policy Net),
+    \item $\theta^{-}$ to wagi sieci docelowej (Target Net), aktualizowane co 1000 kroków,
+    \item Strategia eksploracji: $\epsilon$-greedy z zanikiem (decay) od $\epsilon=1.0$
+          do $\epsilon_{min}=0.05$.
+\end{itemize}
+
+\section{Modele Matematyczne Dynamiki Populacji}
+W celu weryfikacji realizmu symulacji, uzyskane wyniki przyrostu populacji
+porównano z teoretycznymi modelami matematycznymi.
+
+\subsection{Model Lotki-Volterry}
+Relacja między Żołnierzami/Ludźmi (ofiary) a Zombie (drapieżniki) może być
+opisana układem równań różniczkowych pierwszego rzędu:
+
+$$
+    \begin{cases}
+        \frac{dx}{dt} = \alpha x - \beta xy \\
+        \frac{dy}{dt} = \delta xy - \gamma y
+    \end{cases}
+$$
+
+gdzie:
+\begin{itemize}
+    \item $x$ -- liczba ludzi/żołnierzy,
+    \item $y$ -- liczba zombie,
+    \item $\alpha, \beta, \delta, \gamma$ -- parametry modelu estymowane na podstawie danych z symulacji.
+\end{itemize}
+
+\subsection{Logistyczny Model Wzrostu}
+Dla populacji ludzi, ograniczonej zasobami (miejscem na planszy), stosuje się
+model logistyczny: $$ \frac{dP}{dt} = rP \left(1 - \frac{P}{K}\right) $$ gdzie
+$K$ to pojemność środowiska (carrying capacity).
+
+\section{Wyniki Symulacji}
+ (Tutaj wstawisz wykresy wygenerowane z Matplotlib, np. liczebność populacji w czasie).
+
+\section{Wnioski}
+Podsumowanie projektu. Czy sieć neuronowa nauczyła się skutecznych strategii?
+Czy populacja zombie zdominowała świat, czy została opanowana?
+
+\end{document}
