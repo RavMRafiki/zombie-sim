@@ -106,6 +106,10 @@ class Zombie(Character):
             self.is_alive = False
             # Bezpieczne usunięcie z planszy
             if self in self.grid.characters:
+                try:
+                    self.grid.on_character_removed(self, reason="starved")
+                except Exception:
+                    pass
                 self.grid.characters.remove(self)
             # Lekka kara, by uczyć sieć unikać głodu
             return step_reward - 5.0

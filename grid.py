@@ -16,6 +16,8 @@ class Grid:
     
     def __init__(self, num_zombies=10, num_humans=15, num_infected=5, num_medics=2, num_soldiers=2):
         self.characters = []
+        # Counter for zombies transitioned to R (removed via kill/starvation)
+        self.removed_zombies = 0
         
         # Create zombies
         for _ in range(num_zombies):
@@ -47,6 +49,13 @@ class Grid:
             y = random.randint(0, GRID_SIZE - 1)
             self.characters.append(Soldier(x, y, self))
     
+    def on_character_removed(self, character, reason: str = "unknown"):
+        """Register character removal events for aggregate statistics.
+        Currently tracks only Zombies removed (R compartment in SZR).
+        """
+        if isinstance(character, Zombie):
+            self.removed_zombies += 1
+    
     def draw(self, screen, offset_y=0):
         """Draw grid and all characters"""
         # Draw grid lines
@@ -66,6 +75,9 @@ class Grid:
         medic_count = sum(1 for c in self.characters if isinstance(c, Medic))
         soldier_count = sum(1 for c in self.characters if isinstance(c, Soldier))
         return zombie_count, human_count, infected_count, medic_count, soldier_count
+
+    def get_removed_zombies_count(self) -> int:
+        return self.removed_zombies
 
     def get_global_map_matrix(self):
         """

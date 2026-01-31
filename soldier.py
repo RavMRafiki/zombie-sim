@@ -123,6 +123,12 @@ class Soldier(Character):
                         character.is_alive = False
                         # Bezpieczne usuwanie w pętli main, tu tylko oznaczamy
                         if character in self.grid.characters:
+                             # Rejestrujemy usunięcie zombie do statystyk R
+                             if isinstance(character, Zombie):
+                                 try:
+                                     self.grid.on_character_removed(character, reason="killed")
+                                 except Exception:
+                                     pass
                              self.grid.characters.remove(character)
                         
                         self.last_kill_time = current_time

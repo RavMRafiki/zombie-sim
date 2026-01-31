@@ -5,7 +5,6 @@ A Pygame-based simulation with five types of characters interacting on a 256x256
 ## Features
 
 - **5 Character Types:**
-
   - **Zombies** (Green) - Aggressive hunters that infect humans and infected characters
   - **Humans** (Blue) - Defensive survivors that detect and broadcast threat information
   - **Infected** (Orange) - Transitional state that eventually transforms into zombies
@@ -60,22 +59,18 @@ grid = Grid(num_zombies=40, num_humans=60, num_infected=0, num_medics=16, num_so
 Each character type has customizable parameters:
 
 - **Zombie:**
-
   - `INFECTION_RANGE` - Distance to infect characters (default: 1.99 cells)
   - `INFECTION_COOLDOWN` - Time between infections (default: 5000ms)
 
 - **Human:**
-
   - `THREAT_DETECTION_RANGE` - Radius to detect zombies/infected (default: 3.0 cells)
   - `THREAT_BROADCAST_RANGE` - Radius to broadcast threat info (default: 7.0 cells)
 
 - **Infected:**
-
   - `TRANSFORMATION_TIME` - Time to transform into zombie (default: 10000ms)
   - `BROADCAST_RANGE` - Radius to broadcast infected status (default: 5.0 cells)
 
 - **Medic:**
-
   - `HEAL_RANGE` - Distance to heal infected (default: 2.0 cells)
   - `HEAL_TIME` - Cooldown between heals (default: 20000ms)
 
@@ -85,20 +80,23 @@ Each character type has customizable parameters:
 
 ## Architecture
 
-- `Character` - Base class with movement, signal system, and core mechanics
-
-  - `Zombie` - Hunts and infects other characters
-  - `Human` - Detects threats and broadcasts warnings
-  - `Infected` - Transitional state between Human and Zombie
-  - `Medic(Human)` - Heals infected characters
-  - `Soldier(Human)` - Eliminates zombie threats
-
-- `Grid` - Manages all characters, rendering, and game updates
+- `Zombie` - Hunts and infects other characters
+- `Human` - Detects threats and broadcasts warnings
+- `Infected` - Transitional state between Human and Zombie
+- `Medic(Human)` - Heals infected characters
+- `Soldier(Human)` - Eliminates zombie threats
 
 ### Key Systems
 
-- **Signal System:** Characters can send/receive signals within a broadcast range for threat awareness and game events
-- **Infection System:** Zombies can infect nearby humans; infected characters transform into zombies after a delay
-- **Healing System:** Medics cure infected characters and restore them to their previous type
-- **Combat System:** Soldiers eliminate zombies with cooldown mechanics
-- **Movement:** Each character type has customizable movement speed and random directional movement
+## SZR Model Fitting
+
+Fit parameters (alpha, beta, gamma, delta) of the SZR ODE system to observed time-series data with columns `time,S,Z,R`:
+
+```bash
+python scripts/fit_szr.py --csv path/to/populations.csv --plot --out-json notebooks/szr_params.json
+```
+
+Options:
+
+- `--guess a,b,g,d` initial parameter guess (default 0.05,0.2,0.05,0.05)
+- `--bounds aL:aH,bL:bH,gL:gH,dL:dH` parameter bounds (default non-negative)

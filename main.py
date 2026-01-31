@@ -16,6 +16,8 @@ from constants import WINDOW_SIZE, COLOR_BACKGROUND, COLOR_ZOMBIE, COLOR_HUMAN, 
 # --- 2. Obsługa argumentów command line ---
 parser = argparse.ArgumentParser(description='Zombie Outbreak Simulation')
 parser.add_argument('--learn', action='store_true', help='Włącz tryb uczenia (trening sieci)')
+parser.add_argument('--log-csv', type=str, default=None, help='Zapisz przebieg populacji do CSV (time,S,Z,R)')
+parser.add_argument('--max-frames', type=int, default=None, help='Maksymalna liczba klatek do uruchomienia przed automatycznym zakończeniem')
 args = parser.parse_args()
 
 IS_TRAINING = args.learn # True jeśli podano --learn, False jeśli nie
@@ -37,6 +39,8 @@ def main():
     
     grid = Grid(num_zombies=38, num_humans=45, num_infected=0, num_medics=10, num_soldiers=25)
     font = pygame.font.Font(None, 24)
+    # Rejestr danych do CSV
+    log_rows = []
     
     running = True
     i = 0
@@ -87,13 +91,37 @@ def main():
             screen.blit(text_surface, (current_x + icon_size + spacing, y_pos + 2))
             current_x += icon_size + spacing + text_surface.get_width() + group_spacing
             
+        # Logowanie S,Z,R do CSV (S=Human+Medic+Soldier, Z=Zombie, R=usunięte Zombie)
+        if args.log_csv:
+            zc, hc, ic, mc, sc = grid.get_stats()
+            S = hc + mc + sc
+            Z = zc
+            R = grid.get_removed_zombies_count()
+            log_rows.append((i, S, Z, R))
+
         pygame.display.flip()
         if IS_TRAINING:
             clock.tick(0) # Max speed
         else:
             clock.tick(60) # Oglądalna prędkość
+        # Limit klatek
+        if args.max_frames is not None and i >= args.max_frames:
+            if IS_TRAINING:
+                zombie_agent.save_model()
+                human_agent.save_model()
+                soldier_agent.save_model()
+            running = False
     
     pygame.quit()
+    # Zapis CSV po zamknięciu
+    if args.log_csv and log_rows:
+        import csv, os
+        os.makedirs(os.path.dirname(args.log_csv), exist_ok=True) if os.path.dirname(args.log_csv) else None
+        with open(args.log_csv, 'w', newline='', encoding='utf-8') as f:
+            w = csv.writer(f)
+            w.writerow(["time","S","Z","R"])
+            w.writerows(log_rows)
+        print(f"Saved population log to {args.log_csv}")
 
 def update_game_logic(grid, global_map):
     """
