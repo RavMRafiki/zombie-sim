@@ -8,7 +8,6 @@ from character import Character
 from constants import (
     MOVE_INTERVAL,
     GRID_SIZE,
-    HUMAN_REPRO_COOLDOWN_MS,
     HUMAN_REPRO_CHANCE,
     HUMAN_ROLE_CHANCE,
     HUMAN_REPRO_RANGE,

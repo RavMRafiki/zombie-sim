@@ -26,7 +26,10 @@ class Zombie(Character):
     
     def __init__(self, x, y, grid=None):
         super().__init__(x, y, grid)
-        self.last_infection_time = 0
+        # Rozłóż początkowy cooldown infekcji jednostajnie w [0, INFECTION_COOLDOWN]
+        current_time = pygame.time.get_ticks()
+        offset = np.random.randint(0, self.INFECTION_COOLDOWN + 1)
+        self.last_infection_time = current_time - offset
         self.prev_dist = float('inf')
         # Liczymy "ostatnie jedzenie" od startu, by dać im czas na polowanie
         self.last_feed_time = pygame.time.get_ticks()
