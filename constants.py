@@ -20,11 +20,10 @@ ZOMBIE_INFECTION_COOLDOWN_MS = 5000
 ZOMBIE_STARVATION_TIME_MS = 6000000
 SOLDIER_KILL_COOLDOWN_MS = 5000
 MEDIC_HEAL_COOLDOWN_MS = 5000
-HUMAN_REPRO_COOLDOWN_MS = 60000
 
 # Probabilities
 # Chance that a Human reproduces when cooldown allows
-HUMAN_REPRO_CHANCE = 0.1
+HUMAN_REPRO_CHANCE = 0.01
 # Chance that a newborn Human is assigned a role (Medic/Soldier)
 HUMAN_ROLE_CHANCE = 0.2
 

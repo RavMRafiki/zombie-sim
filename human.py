@@ -8,7 +8,6 @@ from character import Character
 from constants import (
     MOVE_INTERVAL,
     GRID_SIZE,
-    HUMAN_REPRO_COOLDOWN_MS,
     HUMAN_REPRO_CHANCE,
     HUMAN_ROLE_CHANCE,
     HUMAN_REPRO_RANGE,
@@ -26,14 +25,12 @@ class Human(Character):
     THREAT_DETECTION_RANGE = 4.0   # Zasięg wzroku (widzi zombie)
     THREAT_BROADCAST_RANGE = 45.0  # Zasięg krzyku (ostrzega innych)
     # Rozmnażanie
-    REPRO_COOLDOWN_MS = HUMAN_REPRO_COOLDOWN_MS      # Co najmniej 60s między próbami
     REPRO_CHANCE = HUMAN_REPRO_CHANCE                 # 20% szans po cooldownie
     ROLE_CHANCE = HUMAN_ROLE_CHANCE                   # 8% szansy na rolę (Medic/Soldier)
     
     def __init__(self, x, y, grid=None):
         super().__init__(x, y, grid)
         self.prev_min_dist = float('inf')
-        self.last_reproduction_time = pygame.time.get_ticks()
 
     def get_target_vector(self):
         """
@@ -171,8 +168,6 @@ class Human(Character):
     def _maybe_reproduce(self):
         """Próba stworzenia nowej postaci w sąsiednim polu (po cooldownie)."""
         current_time = pygame.time.get_ticks()
-        if current_time - getattr(self, 'last_reproduction_time', 0) < self.REPRO_COOLDOWN_MS:
-            return
 
         if random.random() > self.REPRO_CHANCE:
             return
