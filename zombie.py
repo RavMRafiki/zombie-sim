@@ -177,7 +177,7 @@ class Zombie(Character):
                     success = self.infect_character(character)
                     if success:
                         step_reward += 10 
-                        print(f"Zombie {id(self)} zaraził człowieka! Nagroda +10")
+                        # print(f"Zombie {id(self)} zaraził człowieka! Nagroda +10")
                         self.last_infection_time = current_time
                         # Zaktualizuj też czas ostatniego "posiłku"
                         self.last_feed_time = current_time

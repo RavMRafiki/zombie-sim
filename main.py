@@ -50,7 +50,7 @@ def main():
                     soldier_agent.save_model()
                 running = False
 
-        if i % 10 == 0:
+        if i % 100 == 0:
             print(f"Frame {i}")
         i += 1
         global_map = grid.get_global_map_matrix()

@@ -225,7 +225,7 @@ class Human(Character):
     def get_infected(self):
         """Metoda wywoływana przez Zombie, gdy infekcja się uda."""
         self.is_alive = False
-        print(f"Człowiek {id(self)} został zarażony! Kara -10")
+        # print(f"Człowiek {id(self)} został zarażony! Kara -10")
         # Wołamy o pomoc medyka!
         self.broadcast_help_request()
 
