@@ -52,7 +52,9 @@ class Infected(Character):
         """Convert this infected to zombie"""
         if self.grid:
             from zombie import Zombie
-            
-            idx = self.grid.characters.index(self)
-            zombie = Zombie(self.x, self.y, self.grid)
-            self.grid.characters[idx] = zombie
+            try:
+                idx = self.grid.characters.index(self)
+                zombie = Zombie(self.x, self.y, self.grid)
+                self.grid.characters[idx] = zombie
+            except:
+                pass
