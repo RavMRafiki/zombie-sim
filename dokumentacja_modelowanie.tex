@@ -92,7 +92,7 @@ Medycy nie wymagają procesu uczenia, ponieważ ich cel jest jasno zdefiniowany 
 statyczny. Do znajdowania najkrótszej ścieżki do najbliższego zarażonego agenta
 wykorzystano algorytm A* (A-star). Funkcja kosztu $f(n)$ zdefiniowana jest
 jako: $$ f(n) = g(n) + h(n) $$ gdzie $g(n)$ to koszt dotarcia do węzła $n$, a
-$h(n)$ to heurystyka (w tym przypadku odległość Manhattan lub Euklidesowa).
+$h(n)$ to heurystyka (u nas odległość Manhattan: $|x-x_{\text{cel}}|+|y-y_{\text{cel}}|$). Implementacja respektuje granice planszy ($128\times128$) oraz zestaw przeszkód budowany dynamicznie w oparciu o lokalne otoczenie medyka: do \texttt{obstacles} trafiają tylko pozycje postaci w zasięgu jego wzroku (\texttt{VISION\_RANGE}), dzięki czemu planowanie jest szybkie i stabilne nawet w tłoku. Jeśli przeszkoda pokrywa się z celem, jest ignorowana, aby umożliwić dotarcie do pacjenta.
 
 \subsection{Głębokie Uczenie ze Wzmocnieniem (DQN)}
 
@@ -149,32 +149,24 @@ Gdzie:
           do $\epsilon_{min}=0.05$.
 \end{itemize}
 
-\section{Modele Matematyczne Dynamiki Populacji}
+\section{Modele Matematyczne epidemii}
 W celu weryfikacji realizmu symulacji, uzyskane wyniki przyrostu populacji
 porównano z teoretycznymi modelami matematycznymi.
 
-\subsection{Model Lotki-Volterry}
-Relacja między Żołnierzami/Ludźmi (ofiary) a Zombie (drapieżniki) może być
-opisana układem równań różniczkowych pierwszego rzędu:
-
+\subsection{Model SIZR (Susceptible–Infected–Zombie–Removed)}
+Weryfikacja dynamiki epidemii odbywa się również poprzez dopasowanie modelu SIZR do szeregów czasowych populacji. Rozważamy zmienne $S(t)$ (podatni), $I(t)$ (zarażeni oczekujący), $Z(t)$ (zombie) i $R(t)$ (usunięci). Równania:
 $$
-    \begin{cases}
-        \frac{dx}{dt} = \alpha x - \beta xy \\
-        \frac{dy}{dt} = \delta xy - \gamma y
-    \end{cases}
+\begin{aligned}
+\frac{dS}{dt} &= -\beta \frac{S Z}{N} + \delta I + \Lambda S,\\
+\frac{dI}{dt} &= \beta \frac{S Z}{N} - \rho I - \delta I,\\
+\frac{dZ}{dt} &= \rho I - \gamma Z,\\
+\frac{dR}{dt} &= \gamma Z,
+\end{aligned}
 $$
+gdzie $N=S+I+Z$ (populacja żywa, bez $R$). Parametry: $\beta$ (infekcyjność), $\delta$ (leczenie $I\to S$), $\rho$ (przemiana $I\to Z$), $\gamma$ (usuwanie zombie $Z\to R$), $\Lambda$ (narodziny).
 
-gdzie:
-\begin{itemize}
-    \item $x$ -- liczba ludzi/żołnierzy,
-    \item $y$ -- liczba zombie,
-    \item $\alpha, \beta, \delta, \gamma$ -- parametry modelu estymowane na podstawie danych z symulacji.
-\end{itemize}
-
-\subsection{Logistyczny Model Wzrostu}
-Dla populacji ludzi, ograniczonej zasobami (miejscem na planszy), stosuje się
-model logistyczny: $$ \frac{dP}{dt} = rP \left(1 - \frac{P}{K}\right) $$ gdzie
-$K$ to pojemność środowiska (carrying capacity).
+\paragraph{Rozwiązywanie i dopasowanie}
+Układ rozwiązywany jest numerycznie (\texttt{scipy.integrate.solve\_ivp}, metoda RK45), a parametry są estymowane metodą najmniejszych kwadratów (\texttt{scipy.optimize.least\_squares}) przez minimalizację błędu między trajektorią a danymi $[S,I,Z,R]$.
 
 \section{Wyniki Symulacji}
  (Tutaj wstawisz wykresy wygenerowane z Matplotlib, np. liczebność populacji w czasie).
