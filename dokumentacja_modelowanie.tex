@@ -65,19 +65,59 @@
 \newpage
 
 \section{Wstęp}
-W tym rozdziale należy opisać cel projektu. Dlaczego symulujemy zombie? (np.
-jako metaforę agresywnej epidemii). Jakie są założenia środowiska (siatka, czas
-dyskretny).
+
+Modelowanie dynamiki rozprzestrzeniania się chorób zakaźnych stanowi fundament
+współczesnej epidemiologii obliczeniowej oraz inżynierii systemów złożonych. W
+niniejszym projekcie jako studium przypadku wybrano teoretyczny scenariusz
+,,apokalipsy zombie'', który w literaturze naukowej służy jako metafora
+ekstremalnie agresywnej pandemii. W przeciwieństwie do standardowych modeli
+grypy czy ospy, model zombie łączy w sobie cechy klasycznej dyfuzji wirusa
+(model SIR) z dynamiką drapieżnik-ofiara (model Lotki-Volterry), co czyni go
+doskonałym narzędziem do testowania stabilności systemów oraz strategii
+przetrwania w warunkach krytycznych.
+
+Głównym celem projektu jest analiza zachowań populacji w symulacji
+wieloagentowej, w której kluczowe decyzje (ucieczka, atak, eksploracja)
+podejmowane są przez autonomiczne jednostki sterowane sztuczną inteligencją. W
+odróżnieniu od klasycznych modeli deterministycznych, gdzie zachowanie jest
+uśrednione, tutaj każdy agent posiada lokalną percepcję i uczy się strategii
+przetrwania metodą prób i błędów.
+
+\subsection{Założenia środowiska i agentów}
+Symulacja odbywa się w środowisku o następującej charakterystyce:
+\begin{itemize}
+    \item \textbf{Przestrzeń dyskretna:} Środowisko zamodelowano jako dwuwymiarową siatkę (grid) o skończonych wymiarach. Wprowadza to ograniczenie zasobów przestrzennych (pojemność środowiska $K$) i wymusza interakcje bezpośrednie.
+    \item \textbf{Czas dyskretny:} Stan układu aktualizowany jest w dyskretnych krokach czasowych (klatkach).
+    \item \textbf{Ograniczona percepcja:} Agenci nie posiadają wiedzy o globalnym stanie mapy; ich pole widzenia ograniczone jest do promienia kilku kratek, co wprowadza element niepewności i sprzyja powstawaniu lokalnych skupisk (klastrów).
+\end{itemize}
+
+W symulacji biorą udział cztery klasy agentów: \textbf{Ludzie} (dąrzący do
+przetrwania i reprodukcji), \textbf{Zombie} (drapieżniki podlegające presji
+głodu), \textbf{Żołnierze} (eliminujący zagrożenie) oraz \textbf{Medycy}
+(leczący infekcje w stadium inkubacji).
+
+Istotą projektu jest porównanie wyników uzyskanych z tej stochastycznej
+symulacji opartej na Głębokim Uczeniu ze Wzmocnieniem (Deep Q-Learning) z
+teoretycznymi modelami matematycznymi opartymi na równaniach różniczkowych.
+Pozwoli to ocenić, na ile klasyczne modele epidemiologiczne są w stanie opisać
+złożone, emergentne zachowania inteligentnych agentów.
 
 \section{Opis Modelu Symulacji}
-Symulacja odbywa się w środowisku dyskretnym. Wyróżniamy cztery klasy agentów,
-z których każda posiada unikalne mechaniki:
+
+Symulacja odbywa się w środowisku dyskretnym (siatka 2D). Kluczowym aspektem
+modelu jest ograniczona percepcja agentów. Każda postać (zarówno sterowana
+siecią neuronową, jak i algorytmami klasycznymi) posiada pole widzenia
+ograniczone do promienia 4--5 kratek. Oznacza to, że agenci podejmują decyzje
+wyłącznie na podstawie lokalnej informacji o otoczeniu, nie posiadając wiedzy o
+globalnym stanie mapy.
+
+Wyróżniamy cztery klasy agentów, z których każda posiada unikalne mechaniki:
 
 \begin{itemize}
     \item \textbf{Ludzie:} Ich celem jest przetrwanie. Posiadają zdolność reprodukcji z prawdopodobieństwem $P_{rep} = 0.002$ na krok. Istnieje również szansa ($20\%$), że nowo narodzony człowiek przejdzie mutację społeczną i stanie się Medykiem lub Żołnierzem.
     \item \textbf{Zombie:} Dążą do zarażenia każdego napotkanego agenta. Posiadają mechanizm głodu (starvation) – brak pożywienia przez określony czas skutkuje śmiercią agenta. Infekcja posiada czas odnowienia (cooldown).
     \item \textbf{Żołnierze:} Ich zadaniem jest eliminacja zombie. Mechanika ataku jest ograniczona czasowo (cooldown).
-    \item \textbf{Medycy:} Agentzy specjalni, których celem jest leczenie zarażonych. Poruszają się, wykorzystując deterministyczny algorytm ścieżki (opisany w sekcji 3).
+    \item \textbf{Medycy:} Agenci specjalni, których celem jest leczenie zarażonych. Poruszają się, wykorzystując deterministyczny algorytm ścieżki (opisany w sekcji 3).
 \end{itemize}
 
 \section{Sterowanie i Algorytmy}
@@ -92,11 +132,21 @@ Medycy nie wymagają procesu uczenia, ponieważ ich cel jest jasno zdefiniowany 
 statyczny. Do znajdowania najkrótszej ścieżki do najbliższego zarażonego agenta
 wykorzystano algorytm A* (A-star). Funkcja kosztu $f(n)$ zdefiniowana jest
 jako: $$ f(n) = g(n) + h(n) $$ gdzie $g(n)$ to koszt dotarcia do węzła $n$, a
-$h(n)$ to heurystyka (u nas odległość Manhattan: $|x-x_{\text{cel}}|+|y-y_{\text{cel}}|$). Implementacja respektuje granice planszy ($128\times128$) oraz zestaw przeszkód budowany dynamicznie w oparciu o lokalne otoczenie medyka: do \texttt{obstacles} trafiają tylko pozycje postaci w zasięgu jego wzroku (\texttt{VISION\_RANGE}), dzięki czemu planowanie jest szybkie i stabilne nawet w tłoku. Jeśli przeszkoda pokrywa się z celem, jest ignorowana, aby umożliwić dotarcie do pacjenta.
+$h(n)$ to heurystyka (u nas odległość Manhattan:
+$|x-x_{\text{cel}}|+|y-y_{\text{cel}}|$). Implementacja respektuje granice
+planszy ($128\times128$) oraz zestaw przeszkód budowany dynamicznie w oparciu o
+lokalne otoczenie medyka: do \texttt{obstacles} trafiają tylko pozycje postaci
+w zasięgu jego wzroku (\texttt{VISION\_RANGE}), dzięki czemu planowanie jest
+szybkie i stabilne nawet w tłoku. Jeśli przeszkoda pokrywa się z celem, jest
+ignorowana, aby umożliwić dotarcie do pacjenta.
 
 \subsection{Głębokie Uczenie ze Wzmocnieniem (DQN)}
 
-[Image of convolutional neural network architecture diagram]
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{fig/architektura.png}
+    \caption{Architektura konwolucyjnych sieci neuronowych dla agentów DQN.}
+\end{figure}
 
 Dla agentów sterowanych sztuczną inteligencją zastosowano algorytm Deep
 Q-Learning. Agent uczy się aproksymować funkcję wartości $Q(s, a)$, która
@@ -143,6 +193,9 @@ $$ L(\theta) = \mathbb{E} \left[ \left( r + \gamma \max_{a'} Q(s', a'; \theta^{-
 Gdzie:
 \begin{itemize}
     \item $\gamma = 0.99$ (współczynnik dyskontowania),
+    \item r to nagroda otrzymana po wykonaniu akcji,
+    \item $s'$ to następny stan po wykonaniu akcji,
+    \item $a'$ to możliwe akcje w stanie $s'$,
     \item $\theta$ to wagi sieci głównej (Policy Net),
     \item $\theta^{-}$ to wagi sieci docelowej (Target Net), aktualizowane co 1000 kroków,
     \item Strategia eksploracji: $\epsilon$-greedy z zanikiem (decay) od $\epsilon=1.0$
@@ -154,19 +207,45 @@ W celu weryfikacji realizmu symulacji, uzyskane wyniki przyrostu populacji
 porównano z teoretycznymi modelami matematycznymi.
 
 \subsection{Model SIZR (Susceptible–Infected–Zombie–Removed)}
-Weryfikacja dynamiki epidemii odbywa się również poprzez dopasowanie modelu SIZR do szeregów czasowych populacji. Rozważamy zmienne $S(t)$ (podatni), $I(t)$ (zarażeni oczekujący), $Z(t)$ (zombie) i $R(t)$ (usunięci). Równania:
-$$
-\begin{aligned}
-\frac{dS}{dt} &= -\beta \frac{S Z}{N} + \delta I + \Lambda S,\\
-\frac{dI}{dt} &= \beta \frac{S Z}{N} - \rho I - \delta I,\\
-\frac{dZ}{dt} &= \rho I - \gamma Z,\\
-\frac{dR}{dt} &= \gamma Z,
-\end{aligned}
+Weryfikacja dynamiki epidemii odbywa się również poprzez dopasowanie modelu
+SIZR do szeregów czasowych populacji. Rozważamy zmienne $S(t)$ (podatni),
+$I(t)$ (zarażeni oczekujący), $Z(t)$ (zombie) i $R(t)$ (usunięci). Równania: $$
+    \begin{aligned}
+        \frac{dS}{dt} & = -\beta \frac{S Z}{N} + \delta I + \Lambda S, \\
+        \frac{dI}{dt} & = \beta \frac{S Z}{N} - \rho I - \delta I,     \\
+        \frac{dZ}{dt} & = \rho I - \gamma Z,                           \\
+        \frac{dR}{dt} & = \gamma Z,
+    \end{aligned}
 $$
 gdzie $N=S+I+Z$ (populacja żywa, bez $R$). Parametry: $\beta$ (infekcyjność), $\delta$ (leczenie $I\to S$), $\rho$ (przemiana $I\to Z$), $\gamma$ (usuwanie zombie $Z\to R$), $\Lambda$ (narodziny).
 
 \paragraph{Rozwiązywanie i dopasowanie}
-Układ rozwiązywany jest numerycznie (\texttt{scipy.integrate.solve\_ivp}, metoda RK45), a parametry są estymowane metodą najmniejszych kwadratów (\texttt{scipy.optimize.least\_squares}) przez minimalizację błędu między trajektorią a danymi $[S,I,Z,R]$.
+Układ rozwiązywany jest numerycznie (\texttt{scipy.integrate.solve\_ivp},
+metoda RK45), a parametry są estymowane metodą najmniejszych kwadratów
+(\texttt{scipy.optimize.least\_squares}) przez minimalizację błędu między
+trajektorią a danymi $[S,I,Z,R]$.
+
+\section{Obserwacje i analiza zachowań emergentnych}
+
+Podczas analizy przebiegu symulacji zaobserwowano istotne zjawisko emergentne,
+wynikające bezpośrednio z ograniczonego pola widzenia agentów.
+
+\subsection{Formowanie się odseparowanych siedlisk}
+W początkowej fazie symulacji (kroki 0--500) następuje dynamiczna wymiana ognia
+i infekcji, wynikająca z losowego rozmieszczenia agentów. Jednakże, po upływie
+około 500 kroków symulacji, układ dąży do stabilizacji przestrzennej:
+
+\begin{enumerate}
+    \item \textbf{Separacja populacji:} Ludzie, unikając zagrożenia, gromadzą się w "bezpiecznych strefach" (często w rogach mapy lub za barierą z Żołnierzy), które znajdują się poza zasięgiem wzroku Zombie.
+    \item \textbf{Utrata celu przez Zombie:} Ze względu na brak globalnej wiedzy o mapie, grupy Zombie, które nie widzą w promieniu 5 kratek żadnego człowieka, zaprzestają aktywnego pościgu i grupują się w oddzielnych klastrach.
+    \item \textbf{Stagnacja (Plateau):} Powstają odseparowane od siebie siedliska. Dopóki żaden agent nie "wyrwie się" z grupy i nie wejdzie w pole widzenia przeciwnej frakcji, liczebność populacji pozostaje względnie stała.
+\end{enumerate}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{fig/separacja.png}
+    \caption{Screen z symulacji pokazujący separacje klas.}
+\end{figure}
 
 \section{Wyniki Symulacji}
 Poniżej przedstawiono zestaw wykresów wygenerowanych na podstawie danych z
