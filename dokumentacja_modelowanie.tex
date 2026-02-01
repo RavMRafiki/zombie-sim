@@ -206,6 +206,38 @@ Gdzie:
 W celu weryfikacji realizmu symulacji, uzyskane wyniki przyrostu populacji
 porównano z teoretycznymi modelami matematycznymi.
 
+\subsection{Model SIR}
+Nazwa SIR pochodzi od pierwszych liter angielskich nazw grup: suspectible, infected, recovered. Pierwsza grupa, czyli grupa S oznacza osoby podatne na zarażenie, czyli potencjalnych nosicieli choroby. Grupa I oznacza osoby zainfekowane, przenoszące chorobę, a R oznacza osoby ozdrowiałe. W zależności od interpretacji modelu grupa R może oznaczać ozdrowiałych, którzy uodpornili się na chorobę i nie mogą ponownie się zarazić lub ozdrowiałych, ale nieodpornych:
+Klasyczny model SIR jest oparty na następujących założeniach.
+    \begin{itemize}
+        \item Do zarażenia może dojść tylko w wyniku bezpośredniego kontaktu osoby z grupy S z osobą z grupy I.
+        \item Każda osoba z grupy I może zarażać osoby z grupy S, tzn. długość okresu latencji choroby jest pomijalna.
+        \item Osoby zdrowe z grupy S w momencie zarażenia przechodzą do grupy osób zainfekowanych I ze stałym, dodatnim współczynnikiem $\beta$, czyli osoba chora zaraża w jednostce czasu $\beta$S(t) osób podatnych.
+        \item Osoby zainfekowane z grupy I przechodzą do grupy osób ozdrowiałych R ze stałym, dodatnim współczynnikiem $\alpha$, czyli to średni czas trwania choroby.
+        \item Nie uwzględniamy procesów demograficznych (jak rozrodczość i śmiertelność), a liczebność populacji N jest stała w czasie, czyli N(t) = N0.
+    \end{itemize}
+
+Schemat transmisji choroby oparty na tych założeniach przestawiamy w następujący sposób:
+\begin{figure}[H]
+    \centering
+    \includegraphics[scale=1]{fig/SIR_schema.png}
+\end{figure}
+Klasyczny model SIR opisany jest układem równań różniczkowych zwyczajnych:
+    $$
+    \begin{aligned}
+        \frac{dS}{dt} &= -\beta \frac{S I}{N} \\
+        \frac{dI}{dt} &= \beta \frac{S I}{N} - \gamma I \\
+        \frac{dR}{dt} &= \gamma I
+    \end{aligned}
+    $$
+        
+    Gdzie:
+    \begin{itemize}
+        \item $\beta$ -- współczynnik transmisji (prawdopodobieństwo zakażenia przy kontakcie),
+        \item $\gamma$ -- współczynnik usunięć (tempo wyzdrowień lub zgonów),
+        \item $N$ -- całkowita populacja, $N = S + I + R$.
+    \end{itemize}
+
 \subsection{Model SIZR (Susceptible–Infected–Zombie–Removed)}
 Weryfikacja dynamiki epidemii odbywa się również poprzez dopasowanie modelu
 SIZR do szeregów czasowych populacji. Rozważamy zmienne $S(t)$ (podatni),
