@@ -23,7 +23,7 @@ MEDIC_HEAL_COOLDOWN_MS = 5000
 
 # Probabilities
 # Chance that a Human reproduces
-HUMAN_REPRO_CHANCE = 0.01
+HUMAN_REPRO_CHANCE = 0.002
 # Chance that a newborn Human is assigned a role (Medic/Soldier)
 HUMAN_ROLE_CHANCE = 0.2
 
