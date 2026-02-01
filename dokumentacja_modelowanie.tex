@@ -169,7 +169,32 @@ gdzie $N=S+I+Z$ (populacja żywa, bez $R$). Parametry: $\beta$ (infekcyjność),
 Układ rozwiązywany jest numerycznie (\texttt{scipy.integrate.solve\_ivp}, metoda RK45), a parametry są estymowane metodą najmniejszych kwadratów (\texttt{scipy.optimize.least\_squares}) przez minimalizację błędu między trajektorią a danymi $[S,I,Z,R]$.
 
 \section{Wyniki Symulacji}
- (Tutaj wstawisz wykresy wygenerowane z Matplotlib, np. liczebność populacji w czasie).
+Poniżej przedstawiono zestaw wykresów wygenerowanych na podstawie danych z
+\texttt{notebooks/populations.csv}:
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{fig/populations_line.png}
+    \caption{Populacje w czasie — wykres liniowy (S, Z, R).}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{fig/populations_stacked.png}
+    \caption{Populacje w czasie — wykres obszarowy (stacked area).}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{fig/populations_percent.png}
+    \caption{Populacje w czasie — udział procentowy (stacked).}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{fig/populations_rolling.png}
+    \caption{Populacje w czasie — wykres wygładzony (rolling mean, okno 5).}
+\end{figure}
 
 \section{Wnioski}
 Podsumowanie projektu. Czy sieć neuronowa nauczyła się skutecznych strategii?
