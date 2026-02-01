@@ -330,7 +330,39 @@ Poniżej przedstawiono zestaw wykresów wygenerowanych na podstawie danych z
 \end{table}
 
 \section{Wnioski}
-Podsumowanie projektu. Czy sieć neuronowa nauczyła się skutecznych strategii?
-Czy populacja zombie zdominowała świat, czy została opanowana?
+Na podstawie przeprowadzonych eksperymentów oraz dopasowania modelu SIZR do
+szeregów czasowych można sformułować następujące wnioski:
+
+\begin{itemize}
+    \item \textbf{Skuteczność działań medyczno-obronnych:} Wysoka wartość
+          współczynnika leczenia ($\delta\approx0.64$) w dopasowanym modelu wskazuje,
+          że mechanizmy
+          interwencji (medycy z algorytmem A* oraz wsparcie żołnierzy) efektywnie
+          redukują liczbę osobników w stanie infekcji $I$ i ograniczają przejścia do
+          klasy Zombie.
+
+    \item \textbf{Umiarkowana presja infekcyjna i niska transformacja:}
+          Otrzymane parametry $\beta\approx0.44$ (infekcyjność) oraz
+          $\rho\approx0.0023$ (przejście $I\to Z$) sugerują, że w badanym scenariuszu
+          ryzyko masowego ,,zombienia" jest relatywnie niewielkie, zwłaszcza przy
+          aktywnym leczeniu.
+
+    \item \textbf{Trwałość populacji ludzkiej:} Niski współczynnik usunięć
+          Zombie ($\gamma\approx0.0011$) i dodatnia, choć mała, dynamika narodzin
+          ($\Lambda\approx0.0014$) wskazują, że populacja ludzi ma tendencję do
+          utrzymywania wzrostu w długim horyzoncie, a napór Zombie jest kontrolowany.
+
+    \item \textbf{Zachowania emergentne z ograniczonej percepcji:} Ograniczony
+          zasięg widzenia agentów prowadzi do separacji siedlisk i lokalnej
+          stabilizacji (plateau), co dobrze koresponduje z obserwowanymi wykresami
+          udziałów procentowych i serii wygładzonych.
+\end{itemize}
+
+\paragraph{Ograniczenia}
+Model SIZR jest uproszczony (pomija m.in. heterogeniczność osobniczą,
+przemieszczanie w przestrzeni i sygnały taktyczne). Parametry mogą być
+częściowo nieidentyfikowalne, a koszt dopasowania wskazuje na pewne
+niedopasowania w szczegółach trajektorii. Ponadto wyniki zależą od ustawień
+nagród i zakresu percepcji agentów.
 
 \end{document}
