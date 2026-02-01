@@ -175,26 +175,48 @@ Poniżej przedstawiono zestaw wykresów wygenerowanych na podstawie danych z
 \begin{figure}[H]
     \centering
     \includegraphics[width=\textwidth]{fig/populations_line.png}
-    \caption{Populacje w czasie — wykres liniowy (S, Z, R).}
+    \caption{Populacje w czasie — wykres liniowy (S, I, Z, R).}
 \end{figure}
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=\textwidth]{fig/populations_stacked.png}
-    \caption{Populacje w czasie — wykres obszarowy (stacked area).}
+    \caption{Populacje w czasie — wykres obszarowy (stacked area; S, I, Z, R).}
 \end{figure}
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=\textwidth]{fig/populations_percent.png}
-    \caption{Populacje w czasie — udział procentowy (stacked).}
+    \caption{Populacje w czasie — udział procentowy (stacked; S, I, Z, R).}
 \end{figure}
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=\textwidth]{fig/populations_rolling.png}
-    \caption{Populacje w czasie — wykres wygładzony (rolling mean, okno 5).}
+    \caption{Populacje w czasie — wykres wygładzony (rolling mean, okno 5; S, I, Z, R).}
 \end{figure}
+
+% --- Dopasowanie SIZR ---
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{fig/sizr_fit.png}
+    \caption{Dopasowanie modelu SIZR do danych z \texttt{populacja6\_z\_I.csv} — porównanie trajektorii S, I, Z, R.}
+\end{figure}
+
+\begin{table}[H]
+    \centering
+    \caption{Parametry dopasowania modelu SIZR dla \texttt{populacja6\_z\_I.csv}}
+    \begin{tabular}{l c}
+        \hline
+        $\beta$   & 0.4443         \\
+        $\delta$  & 0.6418         \\
+        $\rho$    & 0.00229        \\
+        $\gamma$  & 0.00111        \\
+        $\Lambda$ & 0.00141        \\
+        Koszt     & 1\,120\,257.04 \\
+        \hline
+    \end{tabular}
+\end{table}
 
 \section{Wnioski}
 Podsumowanie projektu. Czy sieć neuronowa nauczyła się skutecznych strategii?
