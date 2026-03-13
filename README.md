@@ -1,104 +1,94 @@
 # Zombie Outbreak Simulation
 
-A Pygame-based simulation with five types of characters interacting on a 256x256 grid with dynamic gameplay mechanics.
+An agent-based outbreak simulator built with Pygame. The project models a population moving on a grid where each class has distinct behavior, ranges, and cooldowns. Over time, local interactions between units create larger emergent outcomes: collapse, containment, or unstable equilibrium.
 
-## Features
+## What This Project Is
 
-- **5 Character Types:**
+- A real-time simulation of infection spread and response dynamics.
+- A sandbox for tuning behavior constants and observing system-level effects.
+- A lightweight codebase for experimenting with pathing and reinforcement learning ideas (`DQN/`).
 
-  - **Zombies** (Green) - Aggressive hunters that infect humans and infected characters
-  - **Humans** (Blue) - Defensive survivors that detect and broadcast threat information
-  - **Infected** (Orange) - Transitional state that eventually transforms into zombies
-  - **Medics** (Red) - Support units that heal infected characters back to their previous type
-  - **Soldiers** (Yellow) - Combat specialists that eliminate nearby zombies
+## Simulation Roles
 
-- **Game Mechanics:**
-  - 256x256 grid with variable cell size (4px default)
-  - Character-specific movement speeds and behaviors
-  - Dynamic infection system: Zombies infect nearby humans/infected
-  - Healing system: Medics can cure infected characters
-  - Combat system: Soldiers eliminate threats with cooldown mechanics
-  - Signal/communication system between characters for threat awareness
-  - Characters bounce at grid boundaries
-  - Real-time character count display for all types
+- `Zombie` (green): aggressively infects nearby targets.
+- `Human` (blue): detects threats and broadcasts danger signals.
+- `Infected` (orange): temporary state that eventually turns into a zombie.
+- `Medic` (red): cures infected entities and restores their previous role.
+- `Soldier` (yellow): removes nearby zombies with an attack cooldown.
 
-## Installation
+## Core Mechanics
 
-1. Clone or download this project
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+- Grid world (`256x256` by default) rendered in real time.
+- Individual movement profiles per role.
+- Infection, transformation, healing, and elimination loops.
+- Signal system for local communication and coordination.
+- Boundary handling and continuous population counters.
 
-## Running
+## Screenshots
+
+Latest screenshots from the simulator:
+
+![Early Stage Screeshot](docs/screenshots/Screenshot%20from%202026-03-13%2014-14-36.png)
+![Late Stage Screenshot](docs/screenshots/Screenshot%20from%202026-03-13%2014-16-45.png)
+
+## Quick Start
+
+1. Clone the repository.
+2. Install dependencies.
+
+```bash
+pip install -r requirements.txt
+```
+
+3. Run the simulation.
 
 ```bash
 python main.py
 ```
 
-## Controls
-
-- Close the window to exit the simulation
-
 ## Configuration
 
-Edit the constants in `main.py` to customize:
+You can tune simulation behavior directly in source constants.
 
-- `MOVE_INTERVAL` - Time between moves (default: 500ms)
-- `CELL_SIZE` - Pixel size of each grid cell (default: 4px)
-- `FPS` - Frame rate (default: 60)
-- `GRID_SIZE` - Grid dimensions (default: 256x256)
+### Global Runtime Settings
 
-In the `Grid` initialization in `main()`, adjust character counts:
+In `main.py`:
+
+- `MOVE_INTERVAL`: milliseconds between move ticks (default: `500`).
+- `CELL_SIZE`: pixel size of a grid cell (default: `4`).
+- `FPS`: render frame rate (default: `60`).
+- `GRID_SIZE`: world dimensions (default: `256x256`).
+
+Initial population is set in `Grid(...)` construction, for example:
 
 ```python
 grid = Grid(num_zombies=40, num_humans=60, num_infected=0, num_medics=16, num_soldiers=8)
 ```
 
-### Character-Specific Configuration
+### Role Parameters
 
-Each character type has customizable parameters:
+| Role       | Main Tunables                                      |
+| ---------- | -------------------------------------------------- |
+| `Zombie`   | `INFECTION_RANGE`, `INFECTION_COOLDOWN`            |
+| `Human`    | `THREAT_DETECTION_RANGE`, `THREAT_BROADCAST_RANGE` |
+| `Infected` | `TRANSFORMATION_TIME`, `BROADCAST_RANGE`           |
+| `Medic`    | `HEAL_RANGE`, `HEAL_TIME`                          |
+| `Soldier`  | `KILL_RANGE`, `KILL_COOLDOWN`                      |
 
-- **Zombie:**
+## Project Structure
 
-  - `INFECTION_RANGE` - Distance to infect characters (default: 1.99 cells)
-  - `INFECTION_COOLDOWN` - Time between infections (default: 5000ms)
+- `main.py`: simulation entry point and loop.
+- `grid.py`: world state and update/render orchestration.
+- `character.py`: shared movement and signaling base class.
+- `human.py`, `zombie.py`, `infected.py`, `medic.py`, `soldier.py`: role behavior implementations.
+- `pathfinding.py`: pathing logic used by agents.
+- `DQN/`: reinforcement-learning experiments.
+- `tests/`: unit tests.
 
-- **Human:**
+## Testing
 
-  - `THREAT_DETECTION_RANGE` - Radius to detect zombies/infected (default: 3.0 cells)
-  - `THREAT_BROADCAST_RANGE` - Radius to broadcast threat info (default: 7.0 cells)
+Run tests with:
 
-- **Infected:**
-
-  - `TRANSFORMATION_TIME` - Time to transform into zombie (default: 10000ms)
-  - `BROADCAST_RANGE` - Radius to broadcast infected status (default: 5.0 cells)
-
-- **Medic:**
-
-  - `HEAL_RANGE` - Distance to heal infected (default: 2.0 cells)
-  - `HEAL_TIME` - Cooldown between heals (default: 20000ms)
-
-- **Soldier:**
-  - `KILL_RANGE` - Distance to eliminate zombies (default: 3.0 cells)
-  - `KILL_COOLDOWN` - Cooldown between kills (default: 5000ms)
-
-## Architecture
-
-- `Character` - Base class with movement, signal system, and core mechanics
-
-  - `Zombie` - Hunts and infects other characters
-  - `Human` - Detects threats and broadcasts warnings
-  - `Infected` - Transitional state between Human and Zombie
-  - `Medic(Human)` - Heals infected characters
-  - `Soldier(Human)` - Eliminates zombie threats
-
-- `Grid` - Manages all characters, rendering, and game updates
-
-### Key Systems
-
-- **Signal System:** Characters can send/receive signals within a broadcast range for threat awareness and game events
-- **Infection System:** Zombies can infect nearby humans; infected characters transform into zombies after a delay
-- **Healing System:** Medics cure infected characters and restore them to their previous type
-- **Combat System:** Soldiers eliminate zombies with cooldown mechanics
-- **Movement:** Each character type has customizable movement speed and random directional movement
+```bash
+pytest
+```
